@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gemini Translator Settings</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --subtle: #f7f9f9;
+        --text: #0f1419;
+        --muted: #536471;
+        --border: #e6ecf0;
+        --primary: #1d9bf0;
+        --danger: #f4212e;
+        --success: #00ba7c;
+        --shadow: rgba(101, 119, 134, 0.2) 0px 0px 15px, rgba(101, 119, 134, 0.15) 0px 0px 3px 1px;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: var(--subtle);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 20px 16px 40px 16px;
+      }
+      .header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0;
+        font-weight: 900;
+      }
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .card {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 14px 14px;
+        margin: 12px 0;
+      }
+      .card h2 {
+        margin: 0 0 10px 0;
+        font-size: 13px;
+        font-weight: 900;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin: 10px 0 6px 0;
+      }
+      input[type="text"],
+      input[type="password"],
+      input[type="number"],
+      textarea,
+      select {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #cfd9de;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+        color: var(--text);
+        background: #fff;
+        outline: none;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 62px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .row3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+      }
+      @media (max-width: 760px) {
+        .row,
+        .row3 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      .actions.stack {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .actions.inline {
+        margin-top: 8px;
+      }
+      .actions.inline button {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+      button {
+        border: 0;
+        border-radius: 9999px;
+        padding: 10px 14px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .btn-primary {
+        background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
+        color: #fff;
+        padding: 18px 22px;
+        font-size: 16px;
+        text-align: left;
+        box-shadow: rgba(15, 20, 25, 0.25) 0px 10px 24px, rgba(15, 20, 25, 0.18) 0px 2px 6px;
+      }
+      .btn-primary:hover { filter: brightness(1.04); }
+      .btn-ghost {
+        background: var(--subtle);
+        border: 1px solid #cfd9de;
+        color: var(--text);
+      }
+      .btn-danger {
+        background: var(--danger);
+        color: #fff;
+      }
+      .msg {
+        margin-top: 10px;
+        font-size: 12px;
+        min-height: 18px;
+        color: var(--muted);
+      }
+      .msg.ok { color: var(--success); }
+      .msg.ng { color: var(--danger); }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        font-size: 13px;
+      }
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+      .example {
+        margin-top: 6px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: #f8fafc;
+        border: 1px dashed #d9e2ec;
+        font-size: 12px;
+        color: #334155;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+      details {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: #fff;
+      }
+      details summary {
+        cursor: pointer;
+        font-weight: 900;
+        font-size: 12px;
+        color: var(--text);
+      }
+      .footer {
+        margin-top: 14px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .brandline {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .brandline .who {
+        color: #2ecc71;
+        font-weight: 900;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="header">
+        <div>
+          <h1>Gemini Translator 設定</h1>
+          <div class="hint">設定は自動で保存されます（必要に応じて「保存」を押してください）。</div>
+        </div>
+        <div class="hint mono" id="gx-daykey"></div>
+      </div>
+
+      <div class="card">
+        <h2>基本</h2>
+        <div class="small">まずはモデル・翻訳方向・APIキーを設定してください。</div>
+        <div class="row">
+          <div>
+            <label>モデル</label>
+            <select id="gx-model">
+              <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+            </select>
+          </div>
+          <div>
+            <label>翻訳方向</label>
+            <select id="gx-direction">
+              <option value="en_to_ja">英語 → 日本語</option>
+              <option value="ja_to_en">日本語 → 英語</option>
+            </select>
+          </div>
+        </div>
+
+        <label>API Key（AI Studio）</label>
+        <input id="gx-apikey" type="password" autocomplete="new-password" placeholder="AIza..." />
+        <div class="actions stack">
+          <button class="btn-primary" id="gx-save">保存</button>
+          <button class="btn-ghost" id="gx-test">キー確認（countTokens）</button>
+        </div>
+        <div class="msg" id="gx-msg"></div>
+        <div class="small">
+          ツイート本文テキストが翻訳のために <span class="mono">generativelanguage.googleapis.com</span>（Gemini API）へ送信されます。保存はローカル（APIキー/設定/文字数統計）のみです。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>コストと上限</h2>
+        <div class="small">上限に達すると自動翻訳を停止します（手動の「表示中を翻訳」は可能）。</div>
+        <div class="row">
+          <div>
+            <label>コスト上限 (1日, USD) ※未設定で無制限</label>
+            <input id="gx-cost-limit" inputmode="decimal" placeholder="例: 0.50" />
+          </div>
+          <div>
+            <label>合計文字数上限 (1日) ※未設定で無制限</label>
+            <input id="gx-chars-limit" inputmode="numeric" placeholder="例: 20000" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>フィルター（翻訳しない条件）</h2>
+        <div class="small">キーワードを含むテキストは翻訳しません。</div>
+        <label>除外キーワード（改行/カンマ区切り、部分一致）</label>
+        <textarea id="gx-exclude-keywords" placeholder="例: giveaway&#10;NFT"></textarea>
+      </div>
+
+      <div class="card">
+        <h2>サイト設定</h2>
+        <label>ホワイトリスト（ドメインのみ）</label>
+        <textarea id="gx-whitelist" placeholder="例: x.com&#10;example.com&#10;news.example.com"></textarea>
+        <div class="small">空の場合は X.com / Twitter のみ翻訳します。URLではなくドメインだけ入力してください。</div>
+        <div class="example mono">x.com&#10;example.com&#10;news.example.com</div>
+        <div class="actions inline">
+          <button class="btn-ghost" id="gx-insert-whitelist-example">例を挿入</button>
+        </div>
+
+        <label>翻訳モード</label>
+        <select id="gx-site-mode">
+          <option value="simple">簡易モード（body を翻訳 / ヘッダ・フッタ・メニューは除外）</option>
+          <option value="advanced">上級モード（サイトごとに範囲指定）</option>
+        </select>
+
+        <label>翻訳後の文字色（デフォルト）</label>
+        <select id="gx-translate-color-default">
+          <option value="inherit">元の色のまま</option>
+          <option value="blue">青</option>
+          <option value="green">緑</option>
+          <option value="orange">オレンジ</option>
+        </select>
+        <div class="small">翻訳後のテキスト色。サイトごとに上書き可能です。</div>
+
+        <label>サイトごとの文字色</label>
+        <textarea id="gx-translate-color-rules" placeholder="例:&#10;x.com | blue&#10;example.com | green"></textarea>
+        <div class="small">書式: <span class="mono">ドメイン | 色(inherit/blue/green/orange)</span></div>
+        <div class="example mono">x.com | blue&#10;example.com | green</div>
+        <div class="actions inline">
+          <button class="btn-ghost" id="gx-insert-color-example">例を挿入</button>
+        </div>
+
+        <label>上級モード: サイトごとの翻訳範囲</label>
+        <textarea id="gx-site-rules" placeholder="例:&#10;example.com | main, article | header, footer, nav, .menu&#10;news.example.com | #content | .sidebar, .footer"></textarea>
+        <div class="small">
+          書式: <span class="mono">ドメイン | 翻訳する範囲(セレクタ) | 翻訳除外(セレクタ)</span><br />
+          例: <span class="mono">example.com | main, article | header, footer, nav</span><br />
+          範囲を空にすると <span class="mono">body</span> が対象になります。
+        </div>
+        <div class="example mono">example.com | main, article | header, footer, nav, .menu&#10;news.example.com | #content | .sidebar, .footer</div>
+        <div class="actions inline">
+          <button class="btn-ghost" id="gx-insert-rules-example">例を挿入</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>品質</h2>
+        <label>用語置換（任意）</label>
+        <textarea id="gx-glossary" placeholder="例:&#10;LLM=大規模言語モデル&#10;launch=ローンチ"></textarea>
+        <div class="small">1行に1つ、<span class="mono">原文=訳語</span> の形式で入力してください。</div>
+        <div class="example mono">LLM=大規模言語モデル&#10;launch=ローンチ</div>
+
+        <div class="check">
+          <input id="gx-cache-enabled" type="checkbox" />
+          <span>翻訳キャッシュを使う（同文の再翻訳を減らす）</span>
+        </div>
+        
+      </div>
+
+      <div class="card">
+        <h2>メンテナンス</h2>
+        <details>
+          <summary>データをリセット（慎重に）</summary>
+          <div class="small" style="margin-top: 10px">
+            - 文字数統計（modelStats）を削除します。APIキーや主要設定は削除しません。<br />
+            - 翻訳済み表示の復旧は、Xページを再読み込みしてください。
+          </div>
+          <div class="actions">
+            <button class="btn-danger" id="gx-reset-stats">統計をリセット</button>
+            <button class="btn-ghost" id="gx-reset-settings">設定を初期化（キー除く）</button>
+          </div>
+          <div class="msg" id="gx-reset-msg"></div>
+        </details>
+      </div>
+
+      <div class="footer">
+        <div class="brandline">
+          <span id="gx-brand-version">バージョン -</span>
+          <span> / </span>
+          <a class="who" id="gx-brand-author" href="https://bit.ly/4shaBYM" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">Mojofull</a>
+          <span> が作りました</span>
+        </div>
+      </div>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>

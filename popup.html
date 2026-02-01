@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gemini Translator</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --subtle: #f7f9f9;
+        --text: #0f1419;
+        --muted: #536471;
+        --border: #e6ecf0;
+        --primary: #1d9bf0;
+        --danger: #f4212e;
+        --success: #00ba7c;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: var(--subtle);
+        color: var(--text);
+        width: 360px;
+      }
+      .wrap {
+        padding: 12px 12px 14px 12px;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 6px 0;
+        font-weight: 900;
+      }
+      .host {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin: 10px 0 6px 0;
+      }
+      select,
+      input[type="text"],
+      input[type="password"],
+      textarea,
+      input[type="checkbox"],
+      button {
+        font-family: inherit;
+      }
+      select {
+        width: 100%;
+        border: 1px solid #cfd9de;
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #fff;
+        font-size: 13px;
+      }
+      input[type="text"],
+      input[type="password"],
+      textarea {
+        width: 100%;
+        border: 1px solid #cfd9de;
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 12px;
+        box-sizing: border-box;
+      }
+      textarea {
+        min-height: 64px;
+        resize: vertical;
+      }
+      .toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+      .toggle span {
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .actions.single {
+        grid-template-columns: 1fr;
+      }
+      .btn {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-weight: 800;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .btn-primary {
+        background: #0f1419;
+        color: #fff;
+      }
+      .btn-ghost {
+        background: #fff;
+        border: 1px solid #cfd9de;
+        color: #0f1419;
+      }
+      .btn-danger {
+        background: var(--danger);
+        color: #fff;
+      }
+      .card {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin-top: 10px;
+      }
+      .small {
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+      details {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 8px 10px;
+        background: #fff;
+        margin-top: 10px;
+      }
+      details summary {
+        cursor: pointer;
+        font-weight: 800;
+        font-size: 12px;
+      }
+      .footer {
+        margin-top: 10px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .link {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Gemini Translator</h1>
+      <div class="host" id="gx-host">-</div>
+
+      <div class="card">
+        <div class="toggle">
+          <span>自動翻訳</span>
+          <input id="gx-auto" type="checkbox" />
+        </div>
+        <label>翻訳方向</label>
+        <select id="gx-direction">
+          <option value="en_to_ja">英語 → 日本語</option>
+          <option value="ja_to_en">日本語 → 英語</option>
+        </select>
+        <label>モデル</label>
+        <select id="gx-model">
+          <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
+          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+          <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+        </select>
+        <label>API Key（AI Studio）</label>
+        <input id="gx-apikey" type="password" autocomplete="new-password" placeholder="AIza..." />
+        <div class="actions">
+          <button class="btn btn-primary" id="gx-save">保存</button>
+          <button class="btn btn-ghost" id="gx-test">キー確認</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <label>翻訳状態</label>
+        <div class="small" id="gx-site-status">-</div>
+        <div class="actions">
+          <button class="btn btn-primary" id="gx-retranslate">再翻訳</button>
+          <button class="btn btn-ghost" id="gx-clear-cache">キャッシュ消去</button>
+        </div>
+      </div>
+
+      <details>
+        <summary>除外・コスト・サイト設定</summary>
+        <label>除外キーワード</label>
+        <textarea id="gx-exclude-keywords" placeholder="例: giveaway&#10;NFT"></textarea>
+        <label>コスト上限 (1日, USD)</label>
+        <input id="gx-cost-limit" inputmode="decimal" placeholder="例: 0.50" />
+        <label>合計文字数上限 (1日)</label>
+        <input id="gx-chars-limit" inputmode="numeric" placeholder="例: 20000" />
+        <label>ホワイトリスト（ドメインのみ）</label>
+        <textarea id="gx-whitelist" placeholder="例: x.com&#10;example.com"></textarea>
+        <label>翻訳後の文字色</label>
+        <select id="gx-translate-color-default">
+          <option value="inherit">元の色のまま</option>
+          <option value="blue">青</option>
+          <option value="green">緑</option>
+          <option value="orange">オレンジ</option>
+        </select>
+        <label>サイトごとの文字色</label>
+        <textarea id="gx-translate-color-rules" placeholder="例:&#10;x.com | blue&#10;example.com | green"></textarea>
+        <label>翻訳モード</label>
+        <select id="gx-site-mode">
+          <option value="simple">簡易モード（body を翻訳 / ヘッダ・フッタ等は除外）</option>
+          <option value="advanced">上級モード（サイトごとに範囲指定）</option>
+        </select>
+        <label>上級モード: サイトごとの翻訳範囲</label>
+        <textarea id="gx-site-rules" placeholder="例:&#10;example.com | main, article | header, footer, nav&#10;news.example.com | #content | .sidebar, .footer"></textarea>
+        <label>用語置換（原文=訳語）</label>
+        <textarea id="gx-glossary" placeholder="例:&#10;LLM=大規模言語モデル&#10;launch=ローンチ"></textarea>
+      </details>
+
+      <div class="footer" id="gx-status">-</div>
+
+      <div class="footer">
+        詳細設定は <a href="#" class="link" id="gx-open-options">オプション</a> へ
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
