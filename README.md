@@ -13,18 +13,22 @@ X.com（Twitter）などのウェブサイトで外国語テキストを自動�
 
 ## インストール
 
-1. このリポジトリをクローン
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/gemini-translator.git
-   ```
+### リリースからダウンロード（推奨）
 
-2. Chromeで `chrome://extensions` を開く
+1. [Releases](https://github.com/furoku/gemini-translator/releases/latest) から最新のzipをダウンロード
+2. 解凍して `extension/` フォルダを取り出す
+3. Chromeで `chrome://extensions` を開く
+4. 右上の「デベロッパーモード」を有効化
+5. 「パッケージ化されていない拡張機能を読み込む」をクリック
+6. `extension/` フォルダを選択
 
-3. 右上の「デベロッパーモード」を有効化
+### ソースからインストール
 
-4. 「パッケージ化されていない拡張機能を読み込む」をクリック
+```bash
+git clone https://github.com/furoku/gemini-translator.git
+```
 
-5. `extension/` フォルダを選択
+その後、上記の手順3〜6を実行。
 
 ## APIキーの取得
 
