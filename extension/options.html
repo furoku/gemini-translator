@@ -205,9 +205,16 @@
       <div class="header">
         <div>
           <h1>Gemini Translator 設定</h1>
-          <div class="hint">設定は自動で保存されます（必要に応じて「保存」を押してください）。</div>
+          <div class="hint">基本は自動保存。必要なら「保存」。</div>
         </div>
         <div class="hint mono" id="gx-daykey"></div>
+      </div>
+
+      <div class="card">
+        <h2>クイックスタート</h2>
+        <div class="small">1. モデル・方向・APIキーを設定</div>
+        <div class="small">2. 他サイトはホワイトリスト追加 → 権限許可</div>
+        <div class="small">3. 自動翻訳・上限を調整</div>
       </div>
 
       <div class="card">
@@ -270,9 +277,13 @@
       <div class="card">
         <h2>サイト設定</h2>
         <label>ホワイトリスト（ドメインのみ）</label>
-        <textarea id="gx-whitelist" placeholder="例: x.com&#10;example.com&#10;news.example.com"></textarea>
-        <div class="small">空の場合は X.com / Twitter のみ翻訳します。URLではなくドメインだけ入力してください。</div>
-        <div class="example mono">x.com&#10;example.com&#10;news.example.com</div>
+        <textarea id="gx-whitelist" placeholder="例: x.com&#10;twitter.com"></textarea>
+        <div class="small">空なら X/T のみ。他サイトは権限許可が必要です。</div>
+        <div class="small" id="gx-permission-status">権限: -</div>
+        <div class="actions inline">
+          <button class="btn-ghost" id="gx-request-permission">権限を許可する</button>
+        </div>
+        <div class="example mono">x.com&#10;twitter.com</div>
         <div class="actions inline">
           <button class="btn-ghost" id="gx-insert-whitelist-example">例を挿入</button>
         </div>
@@ -293,21 +304,21 @@
         <div class="small">翻訳後のテキスト色。サイトごとに上書き可能です。</div>
 
         <label>サイトごとの文字色</label>
-        <textarea id="gx-translate-color-rules" placeholder="例:&#10;x.com | blue&#10;example.com | green"></textarea>
+        <textarea id="gx-translate-color-rules" placeholder="例:&#10;x.com | blue&#10;twitter.com | green"></textarea>
         <div class="small">書式: <span class="mono">ドメイン | 色(inherit/blue/green/orange)</span></div>
-        <div class="example mono">x.com | blue&#10;example.com | green</div>
+        <div class="example mono">x.com | blue&#10;twitter.com | green</div>
         <div class="actions inline">
           <button class="btn-ghost" id="gx-insert-color-example">例を挿入</button>
         </div>
 
         <label>上級モード: サイトごとの翻訳範囲</label>
-        <textarea id="gx-site-rules" placeholder="例:&#10;example.com | main, article | header, footer, nav, .menu&#10;news.example.com | #content | .sidebar, .footer"></textarea>
+        <textarea id="gx-site-rules" placeholder="例:&#10;x.com | main | header, footer&#10;twitter.com | main | header, footer"></textarea>
         <div class="small">
           書式: <span class="mono">ドメイン | 翻訳する範囲(セレクタ) | 翻訳除外(セレクタ)</span><br />
-          例: <span class="mono">example.com | main, article | header, footer, nav</span><br />
+          例: <span class="mono">x.com | main | header, footer</span><br />
           範囲を空にすると <span class="mono">body</span> が対象になります。
         </div>
-        <div class="example mono">example.com | main, article | header, footer, nav, .menu&#10;news.example.com | #content | .sidebar, .footer</div>
+        <div class="example mono">x.com | main | header, footer&#10;twitter.com | main | header, footer</div>
         <div class="actions inline">
           <button class="btn-ghost" id="gx-insert-rules-example">例を挿入</button>
         </div>

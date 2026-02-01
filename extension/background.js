@@ -5,6 +5,67 @@ const MODEL_MIGRATION_KEY = 'geminiModelMigratedTo25FlashLite';
 
 const MODEL_STATS_DAY_KEY = 'modelStatsDayKey';
 const MODEL_STATS_RESET_HOUR_LOCAL = 4;
+const SETTINGS_SITE_WHITELIST_KEY = 'siteWhitelist';
+const DYNAMIC_SCRIPT_ID = 'gx-dynamic-content';
+
+function normalizeHost(input) {
+  const raw = String(input || '').trim().toLowerCase();
+  if (!raw) return '';
+  const noProto = raw.replace(/^https?:\/\//, '');
+  const host = noProto.split('/')[0].split(':')[0];
+  return host.replace(/\.+$/, '');
+}
+
+function isXSiteHost(host) {
+  const h = normalizeHost(host);
+  return h === 'x.com' || h.endsWith('.x.com') || h === 'twitter.com' || h.endsWith('.twitter.com');
+}
+
+function hostToMatchPatterns(host) {
+  const h = normalizeHost(host);
+  if (!h) return [];
+  if (h.startsWith('*.')) {
+    const bare = h.replace(/^\*\./, '');
+    return [`*://${h}/*`, `*://${bare}/*`];
+  }
+  if (h.includes('*')) {
+    return [`*://${h}/*`];
+  }
+  return [`*://${h}/*`, `*://*.${h}/*`];
+}
+
+function uniqueList(list) {
+  return Array.from(new Set(list));
+}
+
+async function updateDynamicContentScripts() {
+  const res = await chrome.storage.local.get([SETTINGS_SITE_WHITELIST_KEY]);
+  const whitelist = Array.isArray(res[SETTINGS_SITE_WHITELIST_KEY]) ? res[SETTINGS_SITE_WHITELIST_KEY] : [];
+  const targets = whitelist.filter((host) => !isXSiteHost(host));
+  const matches = uniqueList(targets.flatMap(hostToMatchPatterns));
+
+  const allowed = [];
+  for (const pattern of matches) {
+    // eslint-disable-next-line no-await-in-loop
+    const ok = await chrome.permissions.contains({ origins: [pattern] });
+    if (ok) allowed.push(pattern);
+  }
+
+  try {
+    await chrome.scripting.unregisterContentScripts({ ids: [DYNAMIC_SCRIPT_ID] });
+  } catch (e) {
+    // ignore if not registered
+  }
+
+  if (allowed.length === 0) return;
+
+  await chrome.scripting.registerContentScripts([{
+    id: DYNAMIC_SCRIPT_ID,
+    js: ['gemlab-utils.js', 'content.js'],
+    matches: allowed,
+    runAt: 'document_idle'
+  }]);
+}
 
 function getModelStatsDayKey(now = new Date()) {
   const shifted = new Date(now.getTime() - MODEL_STATS_RESET_HOUR_LOCAL * 60 * 60 * 1000);
@@ -322,6 +383,12 @@ async function translateArrayWithGemini(texts, apiKey, modelName = DEFAULT_MODEL
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'gx-update-content-scripts') {
+    updateDynamicContentScripts()
+      .then(() => sendResponse({ success: true }))
+      .catch((e) => sendResponse({ success: false, error: e?.message || String(e) }));
+    return true;
+  }
   if (message?.type === 'OPEN_OPTIONS_PAGE') {
     try {
       chrome.runtime.openOptionsPage();
@@ -433,5 +500,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     })();
     return true; // Async response
+  }
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  updateDynamicContentScripts().catch(() => {});
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  updateDynamicContentScripts().catch(() => {});
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'local') return;
+  if (changes[SETTINGS_SITE_WHITELIST_KEY]) {
+    updateDynamicContentScripts().catch(() => {});
   }
 });

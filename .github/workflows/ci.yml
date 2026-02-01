@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate manifest references
+        run: node scripts/validate-manifest.mjs
+      - name: Smoke check JavaScript syntax
+        run: |
+          node --check extension/background.js
+          node --check extension/content.js
+          node --check extension/options.js
+          node --check extension/popup.js
+          node --check extension/gemlab-utils.js

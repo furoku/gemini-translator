@@ -84,6 +84,72 @@ function normalizeHost(input) {
   return host.replace(/\.+$/, '');
 }
 
+function isXSiteHost(host) {
+  const h = normalizeHost(host);
+  return h === 'x.com' || h.endsWith('.x.com') || h === 'twitter.com' || h.endsWith('.twitter.com');
+}
+
+function hostToOriginPatterns(host) {
+  const h = normalizeHost(host);
+  if (!h) return [];
+  if (h.startsWith('*.')) {
+    const bare = h.replace(/^\*\./, '');
+    return [`*://${h}/*`, `*://${bare}/*`];
+  }
+  if (h.includes('*')) {
+    return [`*://${h}/*`];
+  }
+  return [`*://${h}/*`, `*://*.${h}/*`];
+}
+
+function uniqueList(list) {
+  return Array.from(new Set(list));
+}
+
+async function requestHostPermissionsIfNeeded(siteWhitelist, prompt) {
+  const targets = siteWhitelist.filter((host) => !isXSiteHost(host));
+  const origins = uniqueList(targets.flatMap(hostToOriginPatterns));
+  if (origins.length === 0) return { granted: true, origins: [] };
+
+  if (!prompt) {
+    const grantedOrigins = [];
+    for (const origin of origins) {
+      // eslint-disable-next-line no-await-in-loop
+      const ok = await chrome.permissions.contains({ origins: [origin] });
+      if (ok) grantedOrigins.push(origin);
+    }
+    return { granted: grantedOrigins.length === origins.length, origins: grantedOrigins };
+  }
+
+  const granted = await chrome.permissions.request({ origins });
+  return { granted, origins };
+}
+
+async function updatePermissionStatus(siteWhitelist) {
+  const el = qs('gx-permission-status');
+  if (!el) return;
+  const targets = siteWhitelist.filter((host) => !isXSiteHost(host));
+  const origins = uniqueList(targets.flatMap(hostToOriginPatterns));
+  if (origins.length === 0) {
+    el.textContent = '権限: OK（X/Tのみ）';
+    el.style.color = '#00ba7c';
+    return;
+  }
+  let grantedCount = 0;
+  for (const origin of origins) {
+    // eslint-disable-next-line no-await-in-loop
+    const ok = await chrome.permissions.contains({ origins: [origin] });
+    if (ok) grantedCount += 1;
+  }
+  if (grantedCount === origins.length) {
+    el.textContent = '権限: OK';
+    el.style.color = '#00ba7c';
+  } else {
+    el.textContent = `権限: 未許可（${origins.length - grantedCount}件）`;
+    el.style.color = '#f4212e';
+  }
+}
+
 function parseWhitelist(input) {
   return parseLineList(input)
     .map(normalizeHost)
@@ -255,6 +321,7 @@ async function load() {
 
   const whitelist = Array.isArray(res[SETTINGS_SITE_WHITELIST_KEY]) ? res[SETTINGS_SITE_WHITELIST_KEY] : [];
   qs('gx-whitelist').value = whitelist.map(normalizeHost).filter(Boolean).join('\n');
+  await updatePermissionStatus(whitelist.map(normalizeHost).filter(Boolean));
   qs('gx-site-mode').value = (res[SETTINGS_SITE_MODE_KEY] === 'advanced') ? 'advanced' : 'simple';
   qs('gx-site-rules').value = formatSiteRules(res[SETTINGS_SITE_RULES_KEY]);
   qs('gx-translate-color-default').value = normalizeColorName(res[SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY]) || 'inherit';
@@ -315,8 +382,17 @@ async function save({ validateKey = true } = {}) {
     [MODEL_MIGRATION_KEY]: true
   });
 
-  setMsg(msg, '保存しました', true);
-  setTimeout(() => setMsg(msg, '', null), 2000);
+  const permissionResult = await requestHostPermissionsIfNeeded(siteWhitelist, validateKey);
+  if (validateKey && !permissionResult.granted && siteWhitelist.length > 0) {
+    setMsg(msg, '権限がないため追加サイトでは動きません', false);
+  } else {
+    setMsg(msg, '保存しました', true);
+    setTimeout(() => setMsg(msg, '', null), 2000);
+  }
+
+  await updatePermissionStatus(siteWhitelist);
+
+  chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
 }
 
 async function resetStats() {
@@ -393,6 +469,17 @@ function bind() {
 
   qs('gx-reset-stats').addEventListener('click', resetStats);
   qs('gx-reset-settings').addEventListener('click', resetSettings);
+  qs('gx-request-permission')?.addEventListener('click', async () => {
+    const siteWhitelist = parseWhitelist(qs('gx-whitelist').value);
+    const result = await requestHostPermissionsIfNeeded(siteWhitelist, true);
+    if (result.granted) {
+      setMsg(qs('gx-msg'), '権限を許可しました', true);
+    } else {
+      setMsg(qs('gx-msg'), '権限を許可できませんでした', false);
+    }
+    await updatePermissionStatus(siteWhitelist);
+    chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
+  });
 
   const insertExample = (id, example) => {
     const el = qs(id);
@@ -403,18 +490,18 @@ function bind() {
   };
 
   qs('gx-insert-whitelist-example')?.addEventListener('click', () => {
-    insertExample('gx-whitelist', 'x.com\nexample.com\nnews.example.com');
+    insertExample('gx-whitelist', 'x.com\ntwitter.com');
   });
 
   qs('gx-insert-rules-example')?.addEventListener('click', () => {
     insertExample(
       'gx-site-rules',
-      'example.com | main, article | header, footer, nav, .menu\nnews.example.com | #content | .sidebar, .footer'
+      'x.com | main | header, footer\ntwitter.com | main | header, footer'
     );
   });
 
   qs('gx-insert-color-example')?.addEventListener('click', () => {
-    insertExample('gx-translate-color-rules', 'x.com | blue\nexample.com | green');
+    insertExample('gx-translate-color-rules', 'x.com | blue\ntwitter.com | green');
   });
 }
 

@@ -18,6 +18,10 @@ const SETTINGS_TRANSLATE_COLOR_RULES_KEY = 'translateColorRules';
 
 const qs = (id) => document.getElementById(id);
 const statusEl = () => qs('gx-status');
+const permissionEl = () => qs('gx-permission-status');
+
+let cachedWhitelist = [];
+let cachedHost = '';
 
 function setStatus(text, tone = 'info') {
   const el = statusEl();
@@ -47,6 +51,97 @@ function parseWhitelist(input) {
   return parseLineList(input)
     .map(normalizeHost)
     .filter(Boolean);
+}
+
+function hostMatches(host, entry) {
+  const h = String(host || '').toLowerCase();
+  let e = String(entry || '').toLowerCase();
+  if (!h || !e) return false;
+  if (e.startsWith('.')) e = e.slice(1);
+  if (!e) return false;
+  return h === e || h.endsWith(`.${e}`);
+}
+
+function isXSiteHost(host) {
+  return hostMatches(host, 'x.com') || hostMatches(host, 'twitter.com');
+}
+
+function isHostAllowed(host, whitelist) {
+  if (!whitelist || whitelist.length === 0) return isXSiteHost(host);
+  return whitelist.some((entry) => hostMatches(host, entry));
+}
+
+function hostToOriginPatterns(host) {
+  const h = normalizeHost(host);
+  if (!h) return [];
+  if (h.startsWith('*.')) {
+    const bare = h.replace(/^\*\./, '');
+    return [`*://${h}/*`, `*://${bare}/*`];
+  }
+  if (h.includes('*')) {
+    return [`*://${h}/*`];
+  }
+  return [`*://${h}/*`, `*://*.${h}/*`];
+}
+
+function uniqueList(list) {
+  return Array.from(new Set(list));
+}
+
+async function requestHostPermissionsIfNeeded(siteWhitelist, prompt) {
+  const targets = siteWhitelist.filter((host) => !isXSiteHost(host));
+  const origins = uniqueList(targets.flatMap(hostToOriginPatterns));
+  if (origins.length === 0) return { granted: true, origins: [] };
+
+  if (!prompt) {
+    const grantedOrigins = [];
+    for (const origin of origins) {
+      // eslint-disable-next-line no-await-in-loop
+      const ok = await chrome.permissions.contains({ origins: [origin] });
+      if (ok) grantedOrigins.push(origin);
+    }
+    return { granted: grantedOrigins.length === origins.length, origins: grantedOrigins };
+  }
+
+  const granted = await chrome.permissions.request({ origins });
+  return { granted, origins };
+}
+
+async function updatePermissionStatus(host, whitelist) {
+  const el = permissionEl();
+  if (!el) return;
+  if (!host) {
+    el.textContent = '権限: -';
+    el.style.color = '#536471';
+    return;
+  }
+  if (isXSiteHost(host)) {
+    el.textContent = '権限: OK（X/T）';
+    el.style.color = '#00ba7c';
+    return;
+  }
+  if (!isHostAllowed(host, whitelist)) {
+    el.textContent = '権限: リスト外';
+    el.style.color = '#f4212e';
+    return;
+  }
+  const origins = uniqueList(hostToOriginPatterns(host));
+  let granted = false;
+  for (const origin of origins) {
+    // eslint-disable-next-line no-await-in-loop
+    const ok = await chrome.permissions.contains({ origins: [origin] });
+    if (ok) {
+      granted = true;
+      break;
+    }
+  }
+  if (granted) {
+    el.textContent = '権限: OK';
+    el.style.color = '#00ba7c';
+  } else {
+    el.textContent = '権限: 未許可（ボタンで許可）';
+    el.style.color = '#f4212e';
+  }
 }
 
 function parseGlossaryPairs(input) {
@@ -242,12 +337,14 @@ async function loadSettings() {
     .filter(Boolean)
     .join('\n');
   const whitelist = Array.isArray(res[SETTINGS_SITE_WHITELIST_KEY]) ? res[SETTINGS_SITE_WHITELIST_KEY] : [];
-  qs('gx-whitelist').value = whitelist.map(normalizeHost).filter(Boolean).join('\n');
+  cachedWhitelist = whitelist.map(normalizeHost).filter(Boolean);
+  qs('gx-whitelist').value = cachedWhitelist.join('\n');
   qs('gx-site-mode').value = res[SETTINGS_SITE_MODE_KEY] === 'advanced' ? 'advanced' : 'simple';
   qs('gx-site-rules').value = formatSiteRules(res[SETTINGS_SITE_RULES_KEY]);
   qs('gx-translate-color-default').value = normalizeColorName(res[SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY]) || 'inherit';
   qs('gx-translate-color-rules').value = formatColorRules(res[SETTINGS_TRANSLATE_COLOR_RULES_KEY]);
-  setStatus('準備完了', 'info');
+  setStatus('準備OK', 'info');
+  await updatePermissionStatus(cachedHost, cachedWhitelist);
 }
 
 async function saveAll({ validateKey = false } = {}) {
@@ -293,11 +390,20 @@ async function saveAll({ validateKey = false } = {}) {
     [SETTINGS_TRANSLATE_COLOR_RULES_KEY]: translateColorRules
   });
 
+  cachedWhitelist = siteWhitelist;
+
+  const permissionResult = await requestHostPermissionsIfNeeded(siteWhitelist, validateKey);
+  if (validateKey && !permissionResult.granted && siteWhitelist.length > 0) {
+    setStatus('権限がないため追加サイトでは動きません', 'error');
+  }
+  chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
+
   const tab = await getActiveTab();
   if (tab?.id) {
     chrome.tabs.sendMessage(tab.id, { type: 'PAGE_SET_DIRECTION', direction });
   }
-  setStatus('設定を保存しました', 'success');
+  setStatus('保存しました', 'success');
+  await updatePermissionStatus(cachedHost, cachedWhitelist);
 }
 
 async function saveAutoToggle() {
@@ -319,6 +425,7 @@ async function sendPageCommand(type) {
   chrome.tabs.sendMessage(tab.id, { type }, (resp) => {
     if (chrome.runtime.lastError) {
       setStatus('このページでは操作できません', 'error');
+      updatePermissionStatus(cachedHost, cachedWhitelist);
       return;
     }
     if (resp?.success) {
@@ -334,7 +441,8 @@ async function refreshSiteStatus() {
   if (!tab?.id) return;
   chrome.tabs.sendMessage(tab.id, { type: 'PAGE_GET_STATUS' }, (resp) => {
     if (chrome.runtime.lastError) {
-      qs('gx-site-status').textContent = 'このページでは状態取得できません。';
+      qs('gx-site-status').textContent = '状態取得できません';
+      updatePermissionStatus(cachedHost, cachedWhitelist);
       return;
     }
     const status = resp || {};
@@ -350,7 +458,8 @@ async function init() {
   if (tab?.url) {
     try {
       const host = new URL(tab.url).host;
-      qs('gx-host').textContent = host ? `現在のページ: ${host}` : '現在のページ: -';
+      cachedHost = host || '';
+      qs('gx-host').textContent = cachedHost ? `現在のページ: ${cachedHost}` : '現在のページ: -';
     } catch (e) {
       qs('gx-host').textContent = '現在のページ: -';
     }
@@ -386,6 +495,18 @@ async function init() {
   qs('gx-open-options').addEventListener('click', (e) => {
     e.preventDefault();
     chrome.runtime.openOptionsPage();
+  });
+  qs('gx-request-permission')?.addEventListener('click', async () => {
+    const siteWhitelist = parseWhitelist(qs('gx-whitelist').value);
+    cachedWhitelist = siteWhitelist;
+    const result = await requestHostPermissionsIfNeeded(siteWhitelist, true);
+    if (result.granted) {
+      setStatus('権限を許可しました', 'success');
+    } else {
+      setStatus('権限を許可できませんでした', 'error');
+    }
+    chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
+    await updatePermissionStatus(cachedHost, cachedWhitelist);
   });
 }
 

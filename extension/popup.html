@@ -161,6 +161,7 @@
           <span>自動翻訳</span>
           <input id="gx-auto" type="checkbox" />
         </div>
+        <div class="small">ONにすると、対象サイトのテキストを自動で翻訳します。</div>
         <label>翻訳方向</label>
         <select id="gx-direction">
           <option value="en_to_ja">英語 → 日本語</option>
@@ -176,6 +177,7 @@
         </select>
         <label>API Key（AI Studio）</label>
         <input id="gx-apikey" type="password" autocomplete="new-password" placeholder="AIza..." />
+        <div class="small">APIキーは端末内に保存されます。</div>
         <div class="actions">
           <button class="btn btn-primary" id="gx-save">保存</button>
           <button class="btn btn-ghost" id="gx-test">キー確認</button>
@@ -183,8 +185,9 @@
       </div>
 
       <div class="card">
-        <label>翻訳状態</label>
+        <label>このページの状態</label>
         <div class="small" id="gx-site-status">-</div>
+        <div class="small" id="gx-permission-status">-</div>
         <div class="actions">
           <button class="btn btn-primary" id="gx-retranslate">再翻訳</button>
           <button class="btn btn-ghost" id="gx-clear-cache">キャッシュ消去</button>
@@ -200,7 +203,11 @@
         <label>合計文字数上限 (1日)</label>
         <input id="gx-chars-limit" inputmode="numeric" placeholder="例: 20000" />
         <label>ホワイトリスト（ドメインのみ）</label>
-        <textarea id="gx-whitelist" placeholder="例: x.com&#10;example.com"></textarea>
+        <textarea id="gx-whitelist" placeholder="例: x.com&#10;twitter.com"></textarea>
+        <div class="small">追加 → 保存 → 権限許可。未許可サイトは動きません。</div>
+        <div class="actions single">
+          <button class="btn btn-ghost" id="gx-request-permission">権限を許可する</button>
+        </div>
         <label>翻訳後の文字色</label>
         <select id="gx-translate-color-default">
           <option value="inherit">元の色のまま</option>
@@ -209,14 +216,14 @@
           <option value="orange">オレンジ</option>
         </select>
         <label>サイトごとの文字色</label>
-        <textarea id="gx-translate-color-rules" placeholder="例:&#10;x.com | blue&#10;example.com | green"></textarea>
+        <textarea id="gx-translate-color-rules" placeholder="例:&#10;x.com | blue&#10;twitter.com | green"></textarea>
         <label>翻訳モード</label>
         <select id="gx-site-mode">
           <option value="simple">簡易モード（body を翻訳 / ヘッダ・フッタ等は除外）</option>
           <option value="advanced">上級モード（サイトごとに範囲指定）</option>
         </select>
         <label>上級モード: サイトごとの翻訳範囲</label>
-        <textarea id="gx-site-rules" placeholder="例:&#10;example.com | main, article | header, footer, nav&#10;news.example.com | #content | .sidebar, .footer"></textarea>
+        <textarea id="gx-site-rules" placeholder="例:&#10;x.com | main | header, footer&#10;twitter.com | main | header, footer"></textarea>
         <label>用語置換（原文=訳語）</label>
         <textarea id="gx-glossary" placeholder="例:&#10;LLM=大規模言語モデル&#10;launch=ローンチ"></textarea>
       </details>

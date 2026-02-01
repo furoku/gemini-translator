@@ -1,6 +1,6 @@
 # Gemini Translator
 
-X.com（Twitter）などのウェブサイトで外国語テキストを自動翻訳するChrome拡張機能。
+X.com（Twitter）で外国語テキストを自動翻訳するChrome拡張機能。
 
 ## 機能
 
@@ -39,7 +39,7 @@ git clone https://github.com/furoku/gemini-translator.git
 
 ## 使い方
 
-1. X.comなどの対象サイトを開く
+1. X.com / Twitter を開く
 2. 拡張機能アイコンをクリックして設定を確認
 3. 自動翻訳がオンなら、外国語ツイートが自動で翻訳される
 4. 翻訳テキストをクリックすると原文に戻せる
@@ -54,6 +54,15 @@ git clone https://github.com/furoku/gemini-translator.git
 | 日次上限 | コストまたは文字数の上限 |
 | 除外キーワード | 翻訳しないアカウントやキーワード |
 | 用語集 | 固有名詞などの翻訳ルール |
+
+※ 対象サイトを増やす場合は、設定のホワイトリストに追加して権限を許可してください。
+
+## コントリビューション / セキュリティ
+
+- コントリビューション: `CONTRIBUTING.md`
+- 行動規範: `CODE_OF_CONDUCT.md`
+- セキュリティ報告: `SECURITY.md`
+- プライバシーポリシー: `PRIVACY.md`
 
 ## ライセンス
 
