@@ -1,6 +1,15 @@
 /* global chrome */
 
-const DEFAULT_MODEL = 'gemini-2.0-flash-lite';
+const DEFAULT_MODEL = 'gemini-2.5-flash-lite';
+const CHARS_PER_TOKEN = 4;
+const PRICING = {
+  'gemini-2.5-flash-lite': { input: 0.10, output: 0.40 },
+  'gemini-2.0-flash-lite': { input: 0.075, output: 0.30 },
+  'gemini-2.0-flash': { input: 0.10, output: 0.40 },
+  'gemini-2.5-flash': { input: 0.30, output: 2.50 },
+  'gemini-3-flash-preview': { input: 0.30, output: 2.50 },
+  'default': { input: 0.10, output: 0.40 }
+};
 const DIR_EN_JA = 'en_to_ja';
 const DIR_JA_EN = 'ja_to_en';
 const API_KEY_REGEX = /^AIza[0-9A-Za-z\-_]{35}$/;
@@ -11,6 +20,7 @@ const SETTINGS_DAILY_COST_LIMIT_USD_KEY = 'dailyCostLimitUsd';
 const SETTINGS_DAILY_TOTAL_CHARS_LIMIT_KEY = 'dailyTotalCharsLimit';
 const SETTINGS_GLOSSARY_KEY = 'glossaryPairs';
 const SETTINGS_SITE_WHITELIST_KEY = 'siteWhitelist';
+const SETTINGS_SITE_REGISTRY_KEY = 'siteRegistry';
 const SETTINGS_SITE_MODE_KEY = 'siteMode';
 const SETTINGS_SITE_RULES_KEY = 'siteRules';
 const SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY = 'translateColorDefault';
@@ -22,14 +32,107 @@ const permissionEl = () => qs('gx-permission-status');
 
 let cachedWhitelist = [];
 let cachedHost = '';
+let cachedRegistry = [];
 
 function setStatus(text, tone = 'info') {
   const el = statusEl();
-  if (!el) return;
-  el.textContent = text;
-  if (tone === 'error') el.style.color = '#f4212e';
-  else if (tone === 'success') el.style.color = '#00ba7c';
-  else el.style.color = '#536471';
+  if (el) {
+    el.textContent = text;
+    if (tone === 'error') el.style.color = '#f4212e';
+    else if (tone === 'success') el.style.color = '#00ba7c';
+    else el.style.color = '#536471';
+  }
+  // Also show toast for user feedback
+  showToast(text, tone);
+}
+
+function updateAutoStatusText() {
+  const autoEl = qs('gx-auto');
+  const statusText = document.querySelector('.status-text');
+  if (!autoEl || !statusText) return;
+  statusText.textContent = autoEl.checked ? '自動翻訳 ON' : '自動翻訳 OFF';
+}
+
+function estimateCostUsdForModelChars(modelId, inputChars, outputChars) {
+  const prices = PRICING[modelId] || PRICING.default;
+  const inCost = (inputChars / CHARS_PER_TOKEN / 1000000) * prices.input;
+  const outCost = (outputChars / CHARS_PER_TOKEN / 1000000) * prices.output;
+  return inCost + outCost;
+}
+
+function estimateTotalCostUsd(modelStats) {
+  let total = 0;
+  const stats = modelStats || {};
+  Object.keys(stats).forEach((modelId) => {
+    const s = stats[modelId] || { input: 0, output: 0 };
+    total += estimateCostUsdForModelChars(modelId, s.input || 0, s.output || 0);
+  });
+  return total;
+}
+
+function sumTotalChars(modelStats) {
+  let total = 0;
+  const stats = modelStats || {};
+  Object.keys(stats).forEach((modelId) => {
+    const s = stats[modelId] || { input: 0, output: 0 };
+    total += (s.input || 0) + (s.output || 0);
+  });
+  return total;
+}
+
+function updateUsageStats(modelStats, limits) {
+  const costEl = qs('gx-stats-cost');
+  const charsEl = qs('gx-stats-chars');
+  const limitEl = qs('gx-stats-limit');
+  if (!costEl || !charsEl) return;
+
+  const totalCost = estimateTotalCostUsd(modelStats);
+  const totalChars = sumTotalChars(modelStats);
+  costEl.textContent = `$${totalCost.toFixed(4)}`;
+  charsEl.textContent = `${totalChars.toLocaleString()}`;
+
+  const dailyCostLimitUsd = limits?.dailyCostLimitUsd;
+  const dailyTotalCharsLimit = limits?.dailyTotalCharsLimit;
+  const parts = [];
+  if (typeof dailyCostLimitUsd === 'number' && dailyCostLimitUsd > 0) {
+    parts.push(`$${dailyCostLimitUsd}`);
+  }
+  if (typeof dailyTotalCharsLimit === 'number' && dailyTotalCharsLimit > 0) {
+    parts.push(`${dailyTotalCharsLimit.toLocaleString()}文字`);
+  }
+  if (limitEl) {
+    limitEl.textContent = parts.length ? `上限 ${parts.join(' / ')}` : '';
+  }
+}
+
+async function refreshUsageStats() {
+  const res = await chrome.storage.local.get([
+    'modelStats',
+    SETTINGS_DAILY_COST_LIMIT_USD_KEY,
+    SETTINGS_DAILY_TOTAL_CHARS_LIMIT_KEY
+  ]);
+  updateUsageStats(res.modelStats || {}, {
+    dailyCostLimitUsd: res[SETTINGS_DAILY_COST_LIMIT_USD_KEY],
+    dailyTotalCharsLimit: res[SETTINGS_DAILY_TOTAL_CHARS_LIMIT_KEY]
+  });
+}
+
+function showToast(text, tone = 'info') {
+  const toast = qs('gx-toast');
+  if (!toast) return;
+  toast.textContent = text;
+  toast.className = 'toast';
+  if (tone === 'success') toast.classList.add('success');
+  if (tone === 'error') toast.classList.add('error');
+  // Show
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
+  // Auto hide
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2500);
 }
 
 function parseLineList(input) {
@@ -47,10 +150,33 @@ function normalizeHost(input) {
   return host.replace(/\.+$/, '');
 }
 
-function parseWhitelist(input) {
-  return parseLineList(input)
-    .map(normalizeHost)
-    .filter(Boolean);
+
+function normalizeSiteRegistry(list = []) {
+  const items = Array.isArray(list) ? list : [];
+  const out = [];
+  items.forEach((entry) => {
+    if (!entry) return;
+    if (typeof entry === 'string') {
+      const host = normalizeHost(entry);
+      if (host) out.push({ host, enabled: true });
+      return;
+    }
+    const host = normalizeHost(entry.host);
+    if (!host) return;
+    out.push({ host, enabled: entry.enabled !== false });
+  });
+  const seen = new Set();
+  return out.filter((item) => {
+    if (seen.has(item.host)) return false;
+    seen.add(item.host);
+    return true;
+  });
+}
+
+function buildWhitelistFromRegistry(registry) {
+  return normalizeSiteRegistry(registry)
+    .filter((item) => item.enabled)
+    .map((item) => item.host);
 }
 
 function hostMatches(host, entry) {
@@ -109,20 +235,34 @@ async function requestHostPermissionsIfNeeded(siteWhitelist, prompt) {
 
 async function updatePermissionStatus(host, whitelist) {
   const el = permissionEl();
+  const btn = qs('gx-request-permission');
   if (!el) return;
   if (!host) {
     el.textContent = '権限: -';
     el.style.color = '#536471';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '登録して許可';
+    }
+    return;
+  }
+  const registered = normalizeSiteRegistry(cachedRegistry).some((r) => hostMatches(host, r.host));
+  if (!isHostAllowed(host, whitelist) && !registered) {
+    el.textContent = '許可: 未登録';
+    el.style.color = '#f59e0b';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '登録して許可';
+    }
     return;
   }
   if (isXSiteHost(host)) {
-    el.textContent = '権限: OK（X/T）';
-    el.style.color = '#00ba7c';
-    return;
-  }
-  if (!isHostAllowed(host, whitelist)) {
-    el.textContent = '権限: リスト外';
-    el.style.color = '#f4212e';
+    el.textContent = '許可: 許可済み（不要）';
+    el.style.color = '#64748b';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '許可済み';
+    }
     return;
   }
   const origins = uniqueList(hostToOriginPatterns(host));
@@ -136,12 +276,101 @@ async function updatePermissionStatus(host, whitelist) {
     }
   }
   if (granted) {
-    el.textContent = '権限: OK';
-    el.style.color = '#00ba7c';
+    el.textContent = '許可: 許可済み';
+    el.style.color = '#64748b';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '許可済み';
+    }
   } else {
-    el.textContent = '権限: 未許可（ボタンで許可）';
+    el.textContent = '許可: 未許可（ボタンで許可）';
     el.style.color = '#f4212e';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '登録して許可';
+    }
   }
+}
+
+function updateRegistryStatus(host, registry) {
+  const el = qs('gx-site-registry-status');
+  const toggle = qs('gx-site-enabled');
+  const help = qs('gx-help-add-site');
+  if (!el) return;
+  if (!host) {
+    el.textContent = '登録状況: -';
+    if (toggle) {
+      toggle.checked = false;
+      toggle.disabled = true;
+    }
+    if (help) help.style.display = 'none';
+    return;
+  }
+  const item = normalizeSiteRegistry(registry).find((r) => hostMatches(host, r.host));
+  if (!item) {
+    el.textContent = '登録状況: 未登録';
+    if (toggle) {
+      toggle.checked = false;
+      toggle.disabled = true;
+    }
+    if (help) help.style.display = '';
+  } else if (item.enabled) {
+    el.textContent = '登録状況: 登録済み（有効）';
+    if (toggle) {
+      toggle.checked = true;
+      toggle.disabled = false;
+    }
+    if (help) help.style.display = 'none';
+  } else {
+    el.textContent = '登録状況: 登録済み（停止中）';
+    if (toggle) {
+      toggle.checked = false;
+      toggle.disabled = false;
+    }
+    if (help) help.style.display = 'none';
+  }
+}
+
+function updateSelectorStatus(host, rules) {
+  const el = qs('gx-selector-status');
+  if (!el) return;
+  if (!host) {
+    el.textContent = '翻訳する場所: - / 翻訳しない場所: -';
+    return;
+  }
+  const rule = Array.isArray(rules) ? rules.find((r) => hostMatches(host, r?.host)) : null;
+  const include = String(rule?.include || '').trim() || '-';
+  const exclude = String(rule?.exclude || '').trim() || '-';
+  el.textContent = `翻訳する場所: ${include} / 翻訳しない場所: ${exclude}`;
+}
+
+async function loadRegistry(res) {
+  const registry = normalizeSiteRegistry(res[SETTINGS_SITE_REGISTRY_KEY]);
+  const whitelist = Array.isArray(res[SETTINGS_SITE_WHITELIST_KEY]) ? res[SETTINGS_SITE_WHITELIST_KEY] : [];
+  if (registry.length === 0 && whitelist.length > 0) {
+    const next = normalizeSiteRegistry(whitelist);
+    const nextWhitelist = buildWhitelistFromRegistry(next);
+    await chrome.storage.local.set({
+      [SETTINGS_SITE_REGISTRY_KEY]: next,
+      [SETTINGS_SITE_WHITELIST_KEY]: nextWhitelist
+    });
+    return next;
+  }
+  return registry;
+}
+
+async function persistRegistry(registry) {
+  const normalized = normalizeSiteRegistry(registry);
+  const whitelist = buildWhitelistFromRegistry(normalized);
+  await chrome.storage.local.set({
+    [SETTINGS_SITE_REGISTRY_KEY]: normalized,
+    [SETTINGS_SITE_WHITELIST_KEY]: whitelist
+  });
+  cachedRegistry = normalized;
+  cachedWhitelist = whitelist;
+  chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
+  await updatePermissionStatus(cachedHost, cachedWhitelist);
+  updateRegistryStatus(cachedHost, cachedRegistry);
 }
 
 function parseGlossaryPairs(input) {
@@ -159,41 +388,48 @@ function parseGlossaryPairs(input) {
   return pairs;
 }
 
-function parseSiteRules(input) {
-  const lines = parseLineList(input);
-  const rules = [];
-  lines.forEach((line) => {
-    const parts = String(line || '').split('|').map((s) => s.trim());
-    const host = normalizeHost(parts[0]);
-    if (!host) return;
-    const include = parts[1] || '';
-    const exclude = parts[2] || '';
-    rules.push({ host, include, exclude });
-  });
-  return rules;
-}
 
-function formatSiteRules(rules) {
-  const list = Array.isArray(rules) ? rules : [];
-  return list
-    .map((r) => {
-      const host = normalizeHost(r?.host);
-      if (!host) return '';
-      const include = String(r?.include || '').trim();
-      const exclude = String(r?.exclude || '').trim();
-      return `${host} | ${include} | ${exclude}`.trim();
-    })
-    .filter(Boolean)
-    .join('\n');
+function upsertSiteRule(list, host, { include, exclude } = {}) {
+  const h = normalizeHost(host);
+  if (!h) return list;
+  const next = Array.isArray(list) ? [...list] : [];
+  const idx = next.findIndex((r) => hostMatches(h, r?.host));
+  if (idx >= 0) {
+    const current = next[idx] || {};
+    next[idx] = {
+      host: h,
+      include: (include != null) ? include : String(current.include || ''),
+      exclude: (exclude != null) ? exclude : String(current.exclude || '')
+    };
+  } else {
+    next.push({
+      host: h,
+      include: include || '',
+      exclude: exclude || ''
+    });
+  }
+  return next;
 }
 
 function normalizeColorName(input) {
   const s = String(input || '').trim().toLowerCase();
-  if (s === 'inherit') return 'inherit';
-  if (s === 'blue') return 'blue';
-  if (s === 'green') return 'green';
-  if (s === 'orange') return 'orange';
+  if (s === 'inherit' || s === '変更なし') return 'inherit';
+  if (s === 'blue' || s === '青') return 'blue';
+  if (s === 'green' || s === '緑') return 'green';
+  if (s === 'orange' || s === '橙') return 'orange';
   return '';
+}
+
+function updateColorChipSelection(color) {
+  const chips = document.querySelectorAll('.color-chip');
+  chips.forEach((chip) => {
+    const chipColor = chip.dataset.color;
+    if (chipColor === color) {
+      chip.classList.add('selected');
+    } else {
+      chip.classList.remove('selected');
+    }
+  });
 }
 
 function parseColorRules(input) {
@@ -223,40 +459,9 @@ function formatColorRules(rules) {
     .join('\n');
 }
 
-function normalizeColorName(input) {
-  const s = String(input || '').trim().toLowerCase();
-  if (s === 'inherit') return 'inherit';
-  if (s === 'blue') return 'blue';
-  if (s === 'green') return 'green';
-  if (s === 'orange') return 'orange';
-  return '';
-}
-
-function parseColorRules(input) {
-  const lines = parseLineList(input);
-  const rules = [];
-  lines.forEach((line) => {
-    const parts = String(line || '').split('|').map((s) => s.trim());
-    const host = normalizeHost(parts[0]);
-    if (!host) return;
-    const color = normalizeColorName(parts[1]);
-    if (!color) return;
-    rules.push({ host, color });
-  });
-  return rules;
-}
-
-function formatColorRules(rules) {
+function getSiteRuleForHost(rules, host) {
   const list = Array.isArray(rules) ? rules : [];
-  return list
-    .map((r) => {
-      const host = normalizeHost(r?.host);
-      const color = normalizeColorName(r?.color);
-      if (!host || !color) return '';
-      return `${host} | ${color}`.trim();
-    })
-    .filter(Boolean)
-    .join('\n');
+  return list.find((r) => hostMatches(host, r?.host)) || null;
 }
 
 function parseCostLimit(raw) {
@@ -315,6 +520,7 @@ async function loadSettings() {
     SETTINGS_DAILY_TOTAL_CHARS_LIMIT_KEY,
     SETTINGS_GLOSSARY_KEY,
     SETTINGS_SITE_WHITELIST_KEY,
+    SETTINGS_SITE_REGISTRY_KEY,
     SETTINGS_SITE_MODE_KEY,
     SETTINGS_SITE_RULES_KEY,
     SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY,
@@ -336,15 +542,31 @@ async function loadSettings() {
     .map((p) => `${String(p?.from || '').trim()}=${String(p?.to || '').trim()}`)
     .filter(Boolean)
     .join('\n');
-  const whitelist = Array.isArray(res[SETTINGS_SITE_WHITELIST_KEY]) ? res[SETTINGS_SITE_WHITELIST_KEY] : [];
-  cachedWhitelist = whitelist.map(normalizeHost).filter(Boolean);
-  qs('gx-whitelist').value = cachedWhitelist.join('\n');
-  qs('gx-site-mode').value = res[SETTINGS_SITE_MODE_KEY] === 'advanced' ? 'advanced' : 'simple';
-  qs('gx-site-rules').value = formatSiteRules(res[SETTINGS_SITE_RULES_KEY]);
-  qs('gx-translate-color-default').value = normalizeColorName(res[SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY]) || 'inherit';
+  cachedRegistry = await loadRegistry(res);
+  cachedWhitelist = buildWhitelistFromRegistry(cachedRegistry);
+  const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+  updateSelectorStatus(cachedHost, rules);
+  const rule = getSiteRuleForHost(rules, cachedHost);
+  if (qs('gx-include-selector')) qs('gx-include-selector').value = String(rule?.include || '');
+  if (qs('gx-exclude-selector')) qs('gx-exclude-selector').value = String(rule?.exclude || '');
+  const colorDefault = normalizeColorName(res[SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY]) || 'inherit';
+  qs('gx-translate-color-default').value = colorDefault;
   qs('gx-translate-color-rules').value = formatColorRules(res[SETTINGS_TRANSLATE_COLOR_RULES_KEY]);
+  updateColorChipSelection(colorDefault);
   setStatus('準備OK', 'info');
+  updateAutoStatusText();
+  refreshUsageStats();
   await updatePermissionStatus(cachedHost, cachedWhitelist);
+  updateRegistryStatus(cachedHost, cachedRegistry);
+}
+
+function handleRulesChanged(nextRules) {
+  if (!cachedHost) return;
+  const rules = Array.isArray(nextRules) ? nextRules : [];
+  updateSelectorStatus(cachedHost, rules);
+  const rule = getSiteRuleForHost(rules, cachedHost);
+  if (qs('gx-include-selector')) qs('gx-include-selector').value = String(rule?.include || '');
+  if (qs('gx-exclude-selector')) qs('gx-exclude-selector').value = String(rule?.exclude || '');
 }
 
 async function saveAll({ validateKey = false } = {}) {
@@ -369,9 +591,6 @@ async function saveAll({ validateKey = false } = {}) {
   const dailyCostLimitUsd = parseCostLimit(qs('gx-cost-limit').value);
   const dailyTotalCharsLimit = parseCharsLimit(qs('gx-chars-limit').value);
   const glossaryPairs = parseGlossaryPairs(qs('gx-glossary').value);
-  const siteWhitelist = parseWhitelist(qs('gx-whitelist').value);
-  const siteMode = qs('gx-site-mode').value === 'advanced' ? 'advanced' : 'simple';
-  const siteRules = parseSiteRules(qs('gx-site-rules').value);
   const translateColorDefault = normalizeColorName(qs('gx-translate-color-default').value) || 'inherit';
   const translateColorRules = parseColorRules(qs('gx-translate-color-rules').value);
 
@@ -383,20 +602,9 @@ async function saveAll({ validateKey = false } = {}) {
     [SETTINGS_DAILY_COST_LIMIT_USD_KEY]: dailyCostLimitUsd,
     [SETTINGS_DAILY_TOTAL_CHARS_LIMIT_KEY]: dailyTotalCharsLimit,
     [SETTINGS_GLOSSARY_KEY]: glossaryPairs,
-    [SETTINGS_SITE_WHITELIST_KEY]: siteWhitelist,
-    [SETTINGS_SITE_MODE_KEY]: siteMode,
-    [SETTINGS_SITE_RULES_KEY]: siteRules,
     [SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY]: translateColorDefault,
     [SETTINGS_TRANSLATE_COLOR_RULES_KEY]: translateColorRules
   });
-
-  cachedWhitelist = siteWhitelist;
-
-  const permissionResult = await requestHostPermissionsIfNeeded(siteWhitelist, validateKey);
-  if (validateKey && !permissionResult.granted && siteWhitelist.length > 0) {
-    setStatus('権限がないため追加サイトでは動きません', 'error');
-  }
-  chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
 
   const tab = await getActiveTab();
   if (tab?.id) {
@@ -413,6 +621,7 @@ async function saveAutoToggle() {
   if (tab?.id) {
     chrome.tabs.sendMessage(tab.id, { type: 'PAGE_SET_AUTO', enabled });
   }
+  updateAutoStatusText();
   setStatus(enabled ? '自動翻訳をオンにしました' : '自動翻訳をオフにしました', 'success');
 }
 
@@ -434,6 +643,165 @@ async function sendPageCommand(type) {
       setStatus('操作に失敗しました', 'error');
     }
   });
+}
+
+async function requestPermissionForCurrentHost() {
+  if (!cachedHost) {
+    setStatus('サイトが特定できません', 'error');
+    return;
+  }
+  if (isXSiteHost(cachedHost)) {
+    await registerCurrentSite();
+    setStatus('このサイトで翻訳を使えるようにしました', 'success');
+    await updatePermissionStatus(cachedHost, cachedWhitelist);
+    return;
+  }
+
+  const result = await requestHostPermissionsIfNeeded([cachedHost], true);
+  if (result.granted) {
+    await registerCurrentSite();
+    setStatus('このサイトで翻訳を使えるようにしました', 'success');
+    const tab = await getActiveTab();
+    if (tab?.id) {
+      chrome.tabs.reload(tab.id);
+    }
+  } else {
+    setStatus('許可を出せませんでした', 'error');
+  }
+  await updatePermissionStatus(cachedHost, cachedWhitelist);
+  chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
+}
+
+async function registerCurrentSite() {
+  if (!cachedHost) {
+    setStatus('サイトが特定できません', 'error');
+    return;
+  }
+  const next = normalizeSiteRegistry(cachedRegistry);
+  const existing = next.find((r) => hostMatches(cachedHost, r.host));
+  if (existing) {
+    existing.enabled = true;
+  } else {
+    next.push({ host: normalizeHost(cachedHost), enabled: true });
+  }
+  await persistRegistry(next);
+  setStatus('このサイトを登録しました', 'success');
+}
+
+async function setCurrentSiteEnabled(enabled) {
+  if (!cachedHost) {
+    setStatus('サイトが特定できません', 'error');
+    return;
+  }
+  const next = normalizeSiteRegistry(cachedRegistry);
+  const item = next.find((r) => hostMatches(cachedHost, r.host));
+  if (!item) {
+    setStatus('先に登録してください', 'error');
+    updateRegistryStatus(cachedHost, cachedRegistry);
+    return;
+  }
+  item.enabled = !!enabled;
+  await persistRegistry(next);
+  setStatus(enabled ? 'このサイトを有効にしました' : 'このサイトを停止しました', 'success');
+}
+
+async function pickSelector(mode) {
+  const tab = await getActiveTab();
+  if (!tab?.id) {
+    setStatus('有効なタブが見つかりません', 'error');
+    return;
+  }
+  chrome.tabs.sendMessage(tab.id, { type: 'PAGE_PICK_SELECTOR', mode }, async (resp) => {
+    if (chrome.runtime.lastError) {
+      setStatus('このページでは選べません。先に登録と許可をしてください。', 'error');
+      return;
+    }
+    if (!resp?.success || !resp.selector) {
+      setStatus('選択をキャンセルしました', 'info');
+      return;
+    }
+    const selector = resp.selector;
+    const res = await chrome.storage.local.get([
+      SETTINGS_SITE_RULES_KEY,
+      SETTINGS_SITE_MODE_KEY,
+      SETTINGS_SITE_REGISTRY_KEY,
+      SETTINGS_SITE_WHITELIST_KEY
+    ]);
+    const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+    const updated = upsertSiteRule(rules, cachedHost, mode === 'include'
+      ? { include: selector }
+      : { exclude: selector });
+    const registry = normalizeSiteRegistry(res[SETTINGS_SITE_REGISTRY_KEY] || cachedRegistry);
+    if (!isXSiteHost(cachedHost)) {
+      if (!registry.find((r) => hostMatches(cachedHost, r.host))) {
+        registry.push({ host: normalizeHost(cachedHost), enabled: true });
+      }
+    }
+    const whitelist = buildWhitelistFromRegistry(registry);
+    await chrome.storage.local.set({
+      [SETTINGS_SITE_RULES_KEY]: updated,
+      [SETTINGS_SITE_MODE_KEY]: 'advanced',
+      [SETTINGS_SITE_REGISTRY_KEY]: registry,
+      [SETTINGS_SITE_WHITELIST_KEY]: whitelist
+    });
+    cachedRegistry = registry;
+    cachedWhitelist = whitelist;
+    chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
+    setStatus(mode === 'include' ? '翻訳する場所を保存しました' : '翻訳しない場所を保存しました', 'success');
+    updateRegistryStatus(cachedHost, cachedRegistry);
+    updateSelectorStatus(cachedHost, updated);
+    const updatedRule = getSiteRuleForHost(updated, cachedHost);
+    if (qs('gx-include-selector')) qs('gx-include-selector').value = String(updatedRule?.include || '');
+    if (qs('gx-exclude-selector')) qs('gx-exclude-selector').value = String(updatedRule?.exclude || '');
+  });
+}
+
+async function saveSelectorsFromInputs() {
+  if (!cachedHost) {
+    setStatus('サイトが特定できません', 'error');
+    return;
+  }
+  const include = String(qs('gx-include-selector')?.value || '').trim();
+  const exclude = String(qs('gx-exclude-selector')?.value || '').trim();
+  const res = await chrome.storage.local.get([
+    SETTINGS_SITE_RULES_KEY,
+    SETTINGS_SITE_REGISTRY_KEY,
+    SETTINGS_SITE_WHITELIST_KEY
+  ]);
+  const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+  const updated = upsertSiteRule(rules, cachedHost, { include, exclude });
+  const registry = normalizeSiteRegistry(res[SETTINGS_SITE_REGISTRY_KEY] || cachedRegistry);
+  if (!registry.find((r) => hostMatches(cachedHost, r.host))) {
+    registry.push({ host: normalizeHost(cachedHost), enabled: true });
+  }
+  const whitelist = buildWhitelistFromRegistry(registry);
+  await chrome.storage.local.set({
+    [SETTINGS_SITE_RULES_KEY]: updated,
+    [SETTINGS_SITE_MODE_KEY]: 'advanced',
+    [SETTINGS_SITE_REGISTRY_KEY]: registry,
+    [SETTINGS_SITE_WHITELIST_KEY]: whitelist
+  });
+  cachedRegistry = registry;
+  cachedWhitelist = whitelist;
+  chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
+  setStatus('翻訳する場所の設定を保存しました', 'success');
+  updateSelectorStatus(cachedHost, updated);
+  updateRegistryStatus(cachedHost, cachedRegistry);
+}
+
+async function clearSelectorsForCurrentHost() {
+  if (!cachedHost) {
+    setStatus('サイトが特定できません', 'error');
+    return;
+  }
+  const res = await chrome.storage.local.get([SETTINGS_SITE_RULES_KEY]);
+  const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+  const updated = upsertSiteRule(rules, cachedHost, { include: '', exclude: '' });
+  await chrome.storage.local.set({ [SETTINGS_SITE_RULES_KEY]: updated });
+  if (qs('gx-include-selector')) qs('gx-include-selector').value = '';
+  if (qs('gx-exclude-selector')) qs('gx-exclude-selector').value = '';
+  setStatus('翻訳する場所の設定を空にしました', 'success');
+  updateSelectorStatus(cachedHost, updated);
 }
 
 async function refreshSiteStatus() {
@@ -459,31 +827,40 @@ async function init() {
     try {
       const host = new URL(tab.url).host;
       cachedHost = host || '';
-      qs('gx-host').textContent = cachedHost ? `現在のページ: ${cachedHost}` : '現在のページ: -';
+      qs('gx-host').textContent = cachedHost || '-';
     } catch (e) {
-      qs('gx-host').textContent = '現在のページ: -';
+      qs('gx-host').textContent = '-';
     }
   }
 
   await loadSettings();
   await refreshSiteStatus();
 
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes[SETTINGS_SITE_RULES_KEY]) {
+      handleRulesChanged(changes[SETTINGS_SITE_RULES_KEY].newValue);
+    }
+    if (changes.modelStats
+      || changes[SETTINGS_DAILY_COST_LIMIT_USD_KEY]
+      || changes[SETTINGS_DAILY_TOTAL_CHARS_LIMIT_KEY]) {
+      refreshUsageStats();
+    }
+  });
+
   qs('gx-model').addEventListener('change', () => saveAll({ validateKey: false }));
   qs('gx-direction').addEventListener('change', () => saveAll({ validateKey: false }));
   qs('gx-auto').addEventListener('change', saveAutoToggle);
-  qs('gx-retranslate').addEventListener('click', () => sendPageCommand('PAGE_RETRANSLATE'));
-  qs('gx-clear-cache').addEventListener('click', () => sendPageCommand('PAGE_CLEAR_CACHE'));
+  qs('gx-retranslate')?.addEventListener('click', () => sendPageCommand('PAGE_RETRANSLATE'));
+  qs('gx-clear-cache')?.addEventListener('click', () => sendPageCommand('PAGE_CLEAR_CACHE'));
   qs('gx-save').addEventListener('click', () => saveAll({ validateKey: true }));
   qs('gx-test').addEventListener('click', () => saveAll({ validateKey: true }));
   const autosaveIds = [
     'gx-exclude-keywords',
     'gx-cost-limit',
     'gx-chars-limit',
-    'gx-whitelist',
     'gx-translate-color-default',
     'gx-translate-color-rules',
-    'gx-site-mode',
-    'gx-site-rules',
     'gx-glossary',
     'gx-apikey'
   ];
@@ -496,18 +873,35 @@ async function init() {
     e.preventDefault();
     chrome.runtime.openOptionsPage();
   });
-  qs('gx-request-permission')?.addEventListener('click', async () => {
-    const siteWhitelist = parseWhitelist(qs('gx-whitelist').value);
-    cachedWhitelist = siteWhitelist;
-    const result = await requestHostPermissionsIfNeeded(siteWhitelist, true);
-    if (result.granted) {
-      setStatus('権限を許可しました', 'success');
-    } else {
-      setStatus('権限を許可できませんでした', 'error');
-    }
-    chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
-    await updatePermissionStatus(cachedHost, cachedWhitelist);
+
+  // Color chip selection
+  document.querySelectorAll('.color-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const color = chip.dataset.color;
+      qs('gx-translate-color-default').value = color;
+      updateColorChipSelection(color);
+      saveAll({ validateKey: false });
+    });
   });
+  qs('gx-request-permission')?.addEventListener('click', requestPermissionForCurrentHost);
+  qs('gx-site-enabled')?.addEventListener('change', (e) => {
+    setCurrentSiteEnabled(e.target.checked);
+  });
+  qs('gx-pick-include')?.addEventListener('click', () => pickSelector('include'));
+  qs('gx-pick-exclude')?.addEventListener('click', () => pickSelector('exclude'));
+  qs('gx-clear-selector')?.addEventListener('click', clearSelectorsForCurrentHost);
+
+  const includeEl = qs('gx-include-selector');
+  const excludeEl = qs('gx-exclude-selector');
+  let selectorSaveTimer = null;
+  const scheduleSave = () => {
+    if (selectorSaveTimer) clearTimeout(selectorSaveTimer);
+    selectorSaveTimer = setTimeout(() => {
+      saveSelectorsFromInputs();
+    }, 500);
+  };
+  includeEl?.addEventListener('input', scheduleSave);
+  excludeEl?.addEventListener('input', scheduleSave);
 }
 
 init();

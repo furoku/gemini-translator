@@ -1,369 +1,629 @@
 <!doctype html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gemini Translator Settings</title>
-    <style>
-      :root {
-        color-scheme: light;
-        --bg: #ffffff;
-        --subtle: #f7f9f9;
-        --text: #0f1419;
-        --muted: #536471;
-        --border: #e6ecf0;
-        --primary: #1d9bf0;
-        --danger: #f4212e;
-        --success: #00ba7c;
-        --shadow: rgba(101, 119, 134, 0.2) 0px 0px 15px, rgba(101, 119, 134, 0.15) 0px 0px 3px 1px;
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gemini Translator 設定</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+    :root {
+      --bg-body: #f9fafb;
+      --bg-surface: #ffffff;
+      --text-main: #374151;
+      --text-muted: #6b7280;
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --accent-success: #10b981;
+      --accent-danger: #f87171;
+      --border: #e5e7eb;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 40px;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: sticky;
+      top: 20px;
+      height: fit-content;
+    }
+
+    .app-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0 0 20px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      text-align: left;
+      background: transparent;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn:hover {
+      background: #f1f5f9;
+      color: var(--text-main);
+    }
+
+    .nav-btn.active {
+      background: #ecfdf5;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* Main Content Area */
+    .content-area {
+      background: var(--bg-surface);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border);
+      min-height: 500px;
+    }
+
+    .step-section {
+      display: none;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .step-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
       }
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background: var(--subtle);
-        color: var(--text);
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
+    }
+
+    h2 {
+      font-size: 20px;
+      margin: 0 0 8px 0;
+      color: var(--text-main);
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    /* Form Elements */
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text-main);
+    }
+
+    .label-desc {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px;
+      color: var(--text-main);
+      background: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      font-family: inherit;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .input-badge {
+      display: inline-block;
+      background: #f1f5f9;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+      margin-bottom: 8px;
+    }
+
+    /* Buttons & Actions */
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: 99px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-outline {
+      background: white;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    .btn-outline:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .btn-danger {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .btn-danger:hover {
+      background: #fecaca;
+    }
+
+    /* Site Card */
+    .site-card {
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Site Row (generated by JS) */
+    .site-row {
+      background: var(--bg-body);
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    .site-row-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .site-host {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-main);
+    }
+
+    .site-edit {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .site-edit input {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .site-edit-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .site-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: none;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .btn-ghost:hover {
+      background: #e2e8f0;
+      color: var(--text-main);
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .check input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .small {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 20px;
+      text-align: center;
+    }
+
+    /* Color Chips */
+    .color-chips {
+      display: flex;
+      gap: 12px;
+    }
+
+    .color-chip {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.2s;
+      position: relative;
+    }
+
+    .color-chip.selected {
+      transform: scale(1.1);
+      border-color: var(--text-main);
+    }
+
+    .color-chip::after {
+      content: attr(data-label);
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      white-space: nowrap;
+      color: var(--text-muted);
+    }
+
+    .chip-inherit {
+      background: #64748b;
+    }
+
+    .chip-blue {
+      background: #3b82f6;
+    }
+
+    .chip-green {
+      background: #10b981;
+    }
+
+    .chip-orange {
+      background: #f59e0b;
+    }
+
+    /* Footer Info */
+    .footer-info {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .msg-area {
+      margin-top: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      min-height: 20px;
+    }
+
+    .msg-ok {
+      color: var(--accent-success);
+    }
+
+    .msg-ng {
+      color: var(--accent-danger);
+    }
+
+    @media (max-width: 600px) {
       .wrap {
-        max-width: 880px;
-        margin: 0 auto;
-        padding: 20px 16px 40px 16px;
+        grid-template-columns: 1fr;
+        padding: 20px;
       }
-      .header {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 14px;
-      }
-      h1 {
-        font-size: 18px;
-        margin: 0;
-        font-weight: 900;
-      }
-      .hint {
-        font-size: 12px;
-        color: var(--muted);
-      }
-      .card {
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        box-shadow: var(--shadow);
-        padding: 14px 14px;
-        margin: 12px 0;
-      }
-      .card h2 {
-        margin: 0 0 10px 0;
-        font-size: 13px;
-        font-weight: 900;
-      }
-      label {
-        display: block;
-        font-size: 12px;
-        color: var(--muted);
-        margin: 10px 0 6px 0;
-      }
-      input[type="text"],
-      input[type="password"],
-      input[type="number"],
-      textarea,
-      select {
-        width: 100%;
-        box-sizing: border-box;
-        border: 1px solid #cfd9de;
-        border-radius: 10px;
-        padding: 10px 12px;
-        font-size: 14px;
-        color: var(--text);
-        background: #fff;
-        outline: none;
-      }
-      textarea {
-        resize: vertical;
-        min-height: 62px;
-      }
-      .row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-      }
-      .row3 {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 12px;
-      }
-      @media (max-width: 760px) {
-        .row,
-        .row3 {
-          grid-template-columns: 1fr;
-        }
-      }
-      .actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 12px;
-      }
-      .actions.stack {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .actions.inline {
-        margin-top: 8px;
-      }
-      .actions.inline button {
-        padding: 8px 10px;
-        font-size: 12px;
-      }
-      button {
-        border: 0;
-        border-radius: 9999px;
-        padding: 10px 14px;
-        font-weight: 900;
-        cursor: pointer;
-      }
-      .btn-primary {
-        background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
-        color: #fff;
-        padding: 18px 22px;
-        font-size: 16px;
-        text-align: left;
-        box-shadow: rgba(15, 20, 25, 0.25) 0px 10px 24px, rgba(15, 20, 25, 0.18) 0px 2px 6px;
-      }
-      .btn-primary:hover { filter: brightness(1.04); }
-      .btn-ghost {
-        background: var(--subtle);
-        border: 1px solid #cfd9de;
-        color: var(--text);
-      }
-      .btn-danger {
-        background: var(--danger);
-        color: #fff;
-      }
-      .msg {
-        margin-top: 10px;
-        font-size: 12px;
-        min-height: 18px;
-        color: var(--muted);
-      }
-      .msg.ok { color: var(--success); }
-      .msg.ng { color: var(--danger); }
-      .check {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 8px;
-        font-size: 13px;
-      }
-      .small {
-        font-size: 12px;
-        color: var(--muted);
-        line-height: 1.45;
-      }
-      .example {
-        margin-top: 6px;
-        padding: 8px 10px;
-        border-radius: 10px;
-        background: #f8fafc;
-        border: 1px dashed #d9e2ec;
-        font-size: 12px;
-        color: #334155;
-      }
-      .mono {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      }
-      details {
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 10px 12px;
-        background: #fff;
-      }
-      details summary {
-        cursor: pointer;
-        font-weight: 900;
-        font-size: 12px;
-        color: var(--text);
-      }
-      .footer {
-        margin-top: 14px;
-        font-size: 12px;
-        color: var(--muted);
-      }
-      .brandline {
-        margin-top: 10px;
-        font-size: 12px;
-        color: var(--muted);
-      }
-      .brandline .who {
-        color: #2ecc71;
-        font-weight: 900;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="header">
-        <div>
-          <h1>Gemini Translator 設定</h1>
-          <div class="hint">基本は自動保存。必要なら「保存」。</div>
-        </div>
-        <div class="hint mono" id="gx-daykey"></div>
-      </div>
 
-      <div class="card">
-        <h2>クイックスタート</h2>
-        <div class="small">1. モデル・方向・APIキーを設定</div>
-        <div class="small">2. 他サイトはホワイトリスト追加 → 権限許可</div>
-        <div class="small">3. 自動翻訳・上限を調整</div>
-      </div>
+      .sidebar {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 8px;
+      }
 
-      <div class="card">
-        <h2>基本</h2>
-        <div class="small">まずはモデル・翻訳方向・APIキーを設定してください。</div>
-        <div class="row">
-          <div>
-            <label>モデル</label>
-            <select id="gx-model">
-              <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-              <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
-            </select>
-          </div>
-          <div>
-            <label>翻訳方向</label>
-            <select id="gx-direction">
-              <option value="en_to_ja">英語 → 日本語</option>
-              <option value="ja_to_en">日本語 → 英語</option>
-            </select>
+      .nav-btn {
+        white-space: nowrap;
+      }
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(15, 23, 42, 0.95);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success {
+      background: var(--primary);
+    }
+
+    .toast.error {
+      background: var(--accent-danger);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <!-- Side Navigation -->
+    <nav class="sidebar">
+      <div class="app-title">
+        <img src="icons/icon32.png" width="24" height="24" alt="G-Trans" />
+        G-Trans
+      </div>
+      <button class="nav-btn active" data-step-target="step-1">
+        <span>⚙️</span> 基本設定
+      </button>
+      <button class="nav-btn" data-step-target="step-2">
+        <span>🌐</span> サイト管理
+      </button>
+      <button class="nav-btn" data-step-target="step-3">
+        <span>🎨</span> 表示・翻訳後
+      </button>
+      <button class="nav-btn" data-step-target="step-4">
+        <span>🛠</span> 詳細・その他
+      </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content-area">
+
+      <!-- STEP 1: Basic -->
+      <section id="step-1" class="step-section active">
+        <h2>基本設定</h2>
+        <p class="section-desc">翻訳を始めるために、まずはここだけ設定すればOKです。</p>
+
+        <div class="form-group">
+          <span class="input-badge">必須</span>
+          <label>API Key (Google AI Studio)</label>
+          <input id="gx-apikey" type="password" placeholder="AIzaSy..." />
+          <span class="label-desc">Gemini APIを利用するためのキーです。Google AI Studioで無料で取得できます。</span>
+          <div style="margin-top:8px">
+            <button class="btn btn-outline" id="gx-test" style="font-size:12px; padding:6px 12px;">キーが有効かテストする</button>
           </div>
         </div>
 
-        <label>API Key（AI Studio）</label>
-        <input id="gx-apikey" type="password" autocomplete="new-password" placeholder="AIza..." />
-        <div class="actions stack">
-          <button class="btn-primary" id="gx-save">保存</button>
-          <button class="btn-ghost" id="gx-test">キー確認（countTokens）</button>
+        <div class="form-group">
+          <label>AIモデル</label>
+          <select id="gx-model">
+            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (推奨)</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash (バランス)</option>
+            <option value="gemini-3.0-flash">Gemini 3.0 Flash (最新)</option>
+          </select>
+          <span class="label-desc">翻訳に使用するAIモデルを選びます。2.5 Flash-Liteで十分高速です。</span>
         </div>
-        <div class="msg" id="gx-msg"></div>
-        <div class="small">
-          ツイート本文テキストが翻訳のために <span class="mono">generativelanguage.googleapis.com</span>（Gemini API）へ送信されます。保存はローカル（APIキー/設定/文字数統計）のみです。
-        </div>
-      </div>
 
-      <div class="card">
-        <h2>コストと上限</h2>
-        <div class="small">上限に達すると自動翻訳を停止します（手動の「表示中を翻訳」は可能）。</div>
-        <div class="row">
-          <div>
-            <label>コスト上限 (1日, USD) ※未設定で無制限</label>
-            <input id="gx-cost-limit" inputmode="decimal" placeholder="例: 0.50" />
+        <div class="form-group">
+          <label>翻訳方向</label>
+          <select id="gx-direction">
+            <option value="en_to_ja">英語 → 日本語</option>
+            <option value="ja_to_en">日本語 → 英語</option>
+          </select>
+        </div>
+
+      </section>
+
+
+      <!-- STEP 2: Sites -->
+      <section id="step-2" class="step-section">
+        <h2>サイト管理</h2>
+        <p class="section-desc">この拡張機能が動くサイトを管理・設定します。</p>
+
+        <div id="gx-site-registry">
+          <!-- JS will populate this -->
+          <div
+            style="padding: 20px; text-align: center; color: var(--text-muted); background: #f8fafc; border-radius: 12px;">
+            登録済みのサイトはありません。<br>
+            翻訳したいサイトを開いて、ポップアップから「このサイトを登録」してください。
           </div>
-          <div>
-            <label>合計文字数上限 (1日) ※未設定で無制限</label>
-            <input id="gx-chars-limit" inputmode="numeric" placeholder="例: 20000" />
+        </div>
+      </section>
+
+
+      <!-- STEP 3: Appearance -->
+      <section id="step-3" class="step-section">
+        <h2>表示・翻訳後</h2>
+        <p class="section-desc">翻訳されたテキストの見た目を変更します。</p>
+
+        <div class="form-group">
+          <label>翻訳後の文字色</label>
+          <div class="color-chips" style="margin-top: 12px; margin-bottom: 24px;">
+            <div class="color-chip chip-inherit" data-select-target="gx-translate-color-default"
+              data-select-value="inherit" data-label="変更なし"></div>
+            <div class="color-chip chip-blue" data-select-target="gx-translate-color-default" data-select-value="blue"
+              data-label="青"></div>
+            <div class="color-chip chip-green" data-select-target="gx-translate-color-default" data-select-value="green"
+              data-label="緑"></div>
+            <div class="color-chip chip-orange" data-select-target="gx-translate-color-default"
+              data-select-value="orange" data-label="橙"></div>
           </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>フィルター（翻訳しない条件）</h2>
-        <div class="small">キーワードを含むテキストは翻訳しません。</div>
-        <label>除外キーワード（改行/カンマ区切り、部分一致）</label>
-        <textarea id="gx-exclude-keywords" placeholder="例: giveaway&#10;NFT"></textarea>
-      </div>
-
-      <div class="card">
-        <h2>サイト設定</h2>
-        <label>ホワイトリスト（ドメインのみ）</label>
-        <textarea id="gx-whitelist" placeholder="例: x.com&#10;twitter.com"></textarea>
-        <div class="small">空なら X/T のみ。他サイトは権限許可が必要です。</div>
-        <div class="small" id="gx-permission-status">権限: -</div>
-        <div class="actions inline">
-          <button class="btn-ghost" id="gx-request-permission">権限を許可する</button>
-        </div>
-        <div class="example mono">x.com&#10;twitter.com</div>
-        <div class="actions inline">
-          <button class="btn-ghost" id="gx-insert-whitelist-example">例を挿入</button>
+          <input type="hidden" id="gx-translate-color-default">
         </div>
 
-        <label>翻訳モード</label>
-        <select id="gx-site-mode">
-          <option value="simple">簡易モード（body を翻訳 / ヘッダ・フッタ・メニューは除外）</option>
-          <option value="advanced">上級モード（サイトごとに範囲指定）</option>
-        </select>
-
-        <label>翻訳後の文字色（デフォルト）</label>
-        <select id="gx-translate-color-default">
-          <option value="inherit">元の色のまま</option>
-          <option value="blue">青</option>
-          <option value="green">緑</option>
-          <option value="orange">オレンジ</option>
-        </select>
-        <div class="small">翻訳後のテキスト色。サイトごとに上書き可能です。</div>
-
-        <label>サイトごとの文字色</label>
-        <textarea id="gx-translate-color-rules" placeholder="例:&#10;x.com | blue&#10;twitter.com | green"></textarea>
-        <div class="small">書式: <span class="mono">ドメイン | 色(inherit/blue/green/orange)</span></div>
-        <div class="example mono">x.com | blue&#10;twitter.com | green</div>
-        <div class="actions inline">
-          <button class="btn-ghost" id="gx-insert-color-example">例を挿入</button>
+        <div class="form-group">
+          <label>サイトごとの色分け (上級者向け)</label>
+          <textarea id="gx-translate-color-rules" rows="4"
+            placeholder="x.com | 青&#10;example.com | 緑"></textarea>
+          <span class="label-desc">特定のサイトだけ色を変えたい場合に記述します。「ドメイン | 色」の形式。</span>
         </div>
+      </section>
 
-        <label>上級モード: サイトごとの翻訳範囲</label>
-        <textarea id="gx-site-rules" placeholder="例:&#10;x.com | main | header, footer&#10;twitter.com | main | header, footer"></textarea>
-        <div class="small">
-          書式: <span class="mono">ドメイン | 翻訳する範囲(セレクタ) | 翻訳除外(セレクタ)</span><br />
-          例: <span class="mono">x.com | main | header, footer</span><br />
-          範囲を空にすると <span class="mono">body</span> が対象になります。
-        </div>
-        <div class="example mono">x.com | main | header, footer&#10;twitter.com | main | header, footer</div>
-        <div class="actions inline">
-          <button class="btn-ghost" id="gx-insert-rules-example">例を挿入</button>
-        </div>
-      </div>
 
-      <div class="card">
-        <h2>品質</h2>
-        <label>用語置換（任意）</label>
-        <textarea id="gx-glossary" placeholder="例:&#10;LLM=大規模言語モデル&#10;launch=ローンチ"></textarea>
-        <div class="small">1行に1つ、<span class="mono">原文=訳語</span> の形式で入力してください。</div>
-        <div class="example mono">LLM=大規模言語モデル&#10;launch=ローンチ</div>
+      <!-- STEP 4: Advanced -->
+      <section id="step-4" class="step-section">
+        <h2>詳細・その他</h2>
+        <p class="section-desc">より細かい設定や、データの管理です。</p>
 
-        <div class="check">
-          <input id="gx-cache-enabled" type="checkbox" />
-          <span>翻訳キャッシュを使う（同文の再翻訳を減らす）</span>
-        </div>
-        
-      </div>
-
-      <div class="card">
-        <h2>メンテナンス</h2>
-        <details>
-          <summary>データをリセット（慎重に）</summary>
-          <div class="small" style="margin-top: 10px">
-            - 文字数統計（modelStats）を削除します。APIキーや主要設定は削除しません。<br />
-            - 翻訳済み表示の復旧は、Xページを再読み込みしてください。
+        <div class="form-group">
+          <label>コスト上限設定 (1日あたり)</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <span class="label-desc">金額 (USD)</span>
+              <input id="gx-cost-limit" type="number" step="0.01" placeholder="例: 0.5" />
+            </div>
+            <div>
+              <span class="label-desc">文字数 (文字)</span>
+              <input id="gx-chars-limit" type="number" placeholder="例: 50000" />
+            </div>
           </div>
-          <div class="actions">
-            <button class="btn-danger" id="gx-reset-stats">統計をリセット</button>
-            <button class="btn-ghost" id="gx-reset-settings">設定を初期化（キー除く）</button>
-          </div>
-          <div class="msg" id="gx-reset-msg"></div>
-        </details>
-      </div>
-
-      <div class="footer">
-        <div class="brandline">
-          <span id="gx-brand-version">バージョン -</span>
-          <span> / </span>
-          <a class="who" id="gx-brand-author" href="https://bit.ly/4shaBYM" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">Mojofull</a>
-          <span> が作りました</span>
+          <span class="label-desc">使いすぎ防止のリミッターです。空欄なら無制限です。</span>
         </div>
-      </div>
-    </div>
 
-    <script src="options.js"></script>
-  </body>
+        <div class="form-group">
+          <label>除外ワード</label>
+          <textarea id="gx-exclude-keywords" rows="3" placeholder="giveaway, NFT"></textarea>
+          <span class="label-desc">これらを含むテキストは翻訳しません（カンマまたは改行区切り）。</span>
+        </div>
+
+        <div class="form-group"
+          style="padding: 16px; background: #f9fafb; border-radius: 12px; border: 1px solid var(--border); margin-top: 32px;">
+          <label>リセット</label>
+          <p class="label-desc">調子が悪いときや、最初からやり直したいときに使えます。</p>
+          <div style="display: flex; gap: 12px; margin-top: 12px;">
+            <button class="btn btn-outline" id="gx-reset-stats"
+              style="font-size: 12px; padding: 8px 16px;">統計をリセット</button>
+            <button class="btn btn-outline" id="gx-reset-settings"
+              style="font-size: 12px; padding: 8px 16px;">設定を初期化</button>
+          </div>
+          <div id="gx-reset-msg" class="msg-area"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Hidden Inputs/Logic for JS compatibility -->
+  <div style="display:none">
+    <div id="gx-daykey"></div>
+    <textarea id="gx-glossary"></textarea>
+    <input id="gx-cache-enabled" type="checkbox" checked />
+    <div id="gx-brand-version"></div>
+    <div id="gx-brand-author"></div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="gx-toast" class="toast"></div>
+
+  <script src="options.js"></script>
+</body>
+
 </html>

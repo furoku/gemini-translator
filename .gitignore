@@ -2,3 +2,11 @@
 *.zip
 *.crx
 *.pem
+output/
+.codex/
+.claude/
+.jj/
+findings.md
+progress.md
+task_plan.md
+scripts/

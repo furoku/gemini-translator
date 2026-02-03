@@ -1,5 +1,4 @@
 // Content Script - X.com Auto Translator (Floating Panel Version)
-console.log('[Gemini Trans] Translator & Panel loaded.');
 
 // --- Constants & Config ---
 const MIN_TRANSLATION_DELAY_MS = 300;
@@ -190,7 +189,10 @@ let translateColorRules = [];
 let isSiteAllowed = false;
 let pageTranslationEnabled = false;
 const currentHost = String(location.hostname || '').toLowerCase();
-const isXHost = false;
+const isXHost = currentHost === 'x.com'
+    || currentHost.endsWith('.x.com')
+    || currentHost === 'twitter.com'
+    || currentHost.endsWith('.twitter.com');
 const pageCache = new Map();
 let pageCacheLoaded = false;
 let pageCacheSaveTimer = null;
@@ -409,14 +411,8 @@ function hostMatches(host, entry) {
     return h === e || h.endsWith(`.${e}`);
 }
 
-function isXSiteHost(host) {
-    return hostMatches(host, 'x.com') || hostMatches(host, 'twitter.com');
-}
-
 function isHostAllowed(host) {
-    if (!siteWhitelist || siteWhitelist.length === 0) {
-        return isXSiteHost(host);
-    }
+    if (!siteWhitelist || siteWhitelist.length === 0) return isXHost;
     return siteWhitelist.some((entry) => hostMatches(host, entry));
 }
 
@@ -440,10 +436,10 @@ function normalizeSiteRules(raw) {
 
 function normalizeColorName(input) {
     const s = String(input || '').trim().toLowerCase();
-    if (s === 'inherit') return 'inherit';
-    if (s === 'blue') return 'blue';
-    if (s === 'green') return 'green';
-    if (s === 'orange') return 'orange';
+    if (s === 'inherit' || s === '変更なし') return 'inherit';
+    if (s === 'blue' || s === '青') return 'blue';
+    if (s === 'green' || s === '緑') return 'green';
+    if (s === 'orange' || s === '橙') return 'orange';
     return '';
 }
 
@@ -2375,6 +2371,184 @@ function retranslatePageNow() {
     processQueue({ force: true });
 }
 
+let selectorPickState = null;
+
+function cssEscapeValue(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(value);
+    return String(value || '').replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`);
+}
+
+function buildSelectorForElement(el) {
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return '';
+    if (el.id) return `#${cssEscapeValue(el.id)}`;
+    const testId = el.getAttribute('data-testid');
+    if (testId) return `[data-testid="${cssEscapeValue(testId)}"]`;
+    const aria = el.getAttribute('aria-label');
+    if (aria) return `[aria-label="${cssEscapeValue(aria)}"]`;
+    const path = [];
+    let current = el;
+    while (current && current.nodeType === Node.ELEMENT_NODE && path.length < 4) {
+        let selector = current.tagName.toLowerCase();
+        const className = String(current.className || '').split(/\s+/).filter(Boolean)[0];
+        if (className) selector += `.${cssEscapeValue(className)}`;
+        if (current.parentElement) {
+            const siblings = Array.from(current.parentElement.children).filter((c) => c.tagName === current.tagName);
+            if (siblings.length > 1) {
+                const index = siblings.indexOf(current) + 1;
+                selector += `:nth-of-type(${index})`;
+            }
+        }
+        path.unshift(selector);
+        const joined = path.join(' > ');
+        try {
+            if (document.querySelectorAll(joined).length === 1) return joined;
+        } catch (e) {
+            // ignore
+        }
+        current = current.parentElement;
+    }
+    return path.join(' > ');
+}
+
+function startSelectorPick(mode, sendResponse) {
+    if (selectorPickState) {
+        sendResponse?.({ success: false, error: 'busy' });
+        return;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'gx-selector-overlay';
+    overlay.style.cssText = [
+        'position: fixed',
+        'inset: 0',
+        'z-index: 2147483646',
+        'pointer-events: none'
+    ].join(';');
+
+    const panel = document.createElement('div');
+    panel.id = 'gx-selector-panel';
+    panel.style.cssText = [
+        'position: fixed',
+        'right: 12px',
+        'bottom: 12px',
+        'left: auto',
+        'top: auto',
+        'background: rgba(15, 20, 25, 0.92)',
+        'color: #fff',
+        'padding: 10px 12px',
+        'border-radius: 10px',
+        'font-size: 12px',
+        'max-width: 260px',
+        'line-height: 1.4',
+        'pointer-events: auto',
+        'z-index: 2147483647',
+        'box-shadow: 0 10px 20px rgba(0,0,0,0.25)'
+    ].join(';');
+    panel.innerHTML = `
+      <div style="font-weight:700;margin-bottom:6px;">${mode === 'exclude' ? '翻訳しない場所を選ぶ' : '翻訳する場所を選ぶ'}</div>
+      <div id="gx-selector-message" style="opacity:0.85;">クリックすると確定します。複数追加はPickを繰り返してください。</div>
+      <button id="gx-selector-cancel" style="margin-top:8px;border:0;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer;">キャンセル</button>
+    `;
+    const highlighter = document.createElement('div');
+    highlighter.style.cssText = [
+        'position: fixed',
+        'pointer-events: none',
+        'border: 2px solid rgba(29,155,240,0.9)',
+        'background: rgba(29,155,240,0.08)',
+        'border-radius: 6px',
+        'z-index: 2147483645'
+    ].join(';');
+    overlay.appendChild(highlighter);
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+
+    const onMove = (e) => {
+        const target = e.target;
+        if (!target || target === document.body || target === document.documentElement) return;
+        if (overlay.contains(target) || panel.contains(target)) return;
+        if (!(target instanceof Element)) return;
+        const rect = target.getBoundingClientRect();
+        highlighter.style.top = `${Math.max(0, rect.top)}px`;
+        highlighter.style.left = `${Math.max(0, rect.left)}px`;
+        highlighter.style.width = `${rect.width}px`;
+        highlighter.style.height = `${rect.height}px`;
+    };
+
+    const appendSelector = (current, selector) => {
+        const list = splitSelectors(current);
+        if (!list.includes(selector)) list.push(selector);
+        return list.join(', ');
+    };
+
+    const cleanup = (resp) => {
+        document.removeEventListener('mousemove', onMove, true);
+        document.removeEventListener('click', onClick, true);
+        document.removeEventListener('keydown', onKey, true);
+        overlay.remove();
+        panel.remove();
+        selectorPickState = null;
+        sendResponse?.(resp);
+    };
+
+    const onClick = async (e) => {
+        if (overlay.contains(e.target) || panel.contains(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const target = e.target;
+        if (!(target instanceof Element)) {
+            cleanup({ success: false });
+            return;
+        }
+        const selector = buildSelectorForElement(target);
+        const normalizedHost = normalizeHost(currentHost);
+        const ruleHost = isXHost
+            ? (normalizedHost.endsWith('twitter.com') ? 'twitter.com' : 'x.com')
+            : normalizedHost;
+        // Save directly to storage (popup may be closed when user clicks)
+        try {
+            const res = await chrome.storage.local.get([SETTINGS_SITE_RULES_KEY]);
+            const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+            const existingIdx = rules.findIndex((r) => hostMatches(ruleHost, r?.host));
+            const existing = existingIdx >= 0 ? rules[existingIdx] : { host: ruleHost, include: '', exclude: '' };
+            if (mode === 'include') {
+                existing.include = appendSelector(existing.include, selector);
+            } else {
+                existing.exclude = appendSelector(existing.exclude, selector);
+            }
+            if (existingIdx >= 0) {
+                rules[existingIdx] = { ...existing, host: ruleHost };
+            } else {
+                rules.push(existing);
+            }
+            await chrome.storage.local.set({
+                [SETTINGS_SITE_RULES_KEY]: rules,
+                [SETTINGS_SITE_MODE_KEY]: 'advanced'
+            });
+            siteRules = rules;
+            showToast(mode === 'include' ? '翻訳エリアを追加しました' : '除外エリアを追加しました', 'success');
+        } catch (err) {
+            console.error('[Gemini Trans] Failed to save selector:', err);
+            showToast('保存に失敗しました', 'error');
+        }
+        cleanup({ success: true, selector });
+    };
+
+    const onKey = (e) => {
+        if (e.key === 'Escape') {
+            cleanup({ success: false });
+        }
+    };
+
+    panel.querySelector('#gx-selector-cancel')?.addEventListener('click', () => cleanup({ success: false }));
+
+    document.addEventListener('mousemove', onMove, true);
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKey, true);
+
+    selectorPickState = { mode };
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!message || !message.type) return;
     if (message.type === 'PAGE_RETRANSLATE') {
@@ -2417,6 +2591,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             pageTranslationEnabled,
             siteMode
         });
+        return true;
+    }
+    if (message.type === 'PAGE_PICK_SELECTOR') {
+        startSelectorPick(message.mode, sendResponse);
         return true;
     }
 });

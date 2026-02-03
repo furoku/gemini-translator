@@ -1,6 +1,6 @@
 /* global chrome */
 
-const DEFAULT_MODEL = 'gemini-2.0-flash-lite';
+const DEFAULT_MODEL = 'gemini-2.5-flash-lite';
 const MODEL_MIGRATION_KEY = 'geminiModelMigratedTo25FlashLite';
 const MODEL_STATS_DAY_KEY = 'modelStatsDayKey';
 const MODEL_STATS_RESET_HOUR_LOCAL = 4;
@@ -14,6 +14,7 @@ const SETTINGS_DAILY_TOTAL_CHARS_LIMIT_KEY = 'dailyTotalCharsLimit';
 const SETTINGS_CACHE_ENABLED_KEY = 'enableTranslationCache';
 const SETTINGS_GLOSSARY_KEY = 'glossaryPairs';
 const SETTINGS_SITE_WHITELIST_KEY = 'siteWhitelist';
+const SETTINGS_SITE_REGISTRY_KEY = 'siteRegistry';
 const SETTINGS_SITE_MODE_KEY = 'siteMode';
 const SETTINGS_SITE_RULES_KEY = 'siteRules';
 const SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY = 'translateColorDefault';
@@ -31,15 +32,39 @@ function getModelStatsDayKey(now = new Date()) {
 }
 
 function setMsg(el, text, ok) {
+  if (!el) return;
   el.textContent = String(text || '');
-  el.classList.remove('ok', 'ng');
-  if (ok === true) el.classList.add('ok');
-  if (ok === false) el.classList.add('ng');
+  el.classList.remove('msg-ok', 'msg-ng');
+  if (ok === true) el.classList.add('msg-ok');
+  if (ok === false) el.classList.add('msg-ng');
+}
+
+function showToast(text, tone = 'info') {
+  const toast = qs('gx-toast');
+  if (!toast) return;
+  toast.textContent = text;
+  toast.className = 'toast';
+  if (tone === 'success') toast.classList.add('success');
+  if (tone === 'error') toast.classList.add('error');
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2000);
 }
 
 function parseLineList(input) {
   return String(input || '')
     .split(/\r?\n|,/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function parseNewlineList(input) {
+  return String(input || '')
+    .split(/\r?\n/g)
     .map((s) => s.trim())
     .filter(Boolean);
 }
@@ -87,6 +112,99 @@ function normalizeHost(input) {
 function isXSiteHost(host) {
   const h = normalizeHost(host);
   return h === 'x.com' || h.endsWith('.x.com') || h === 'twitter.com' || h.endsWith('.twitter.com');
+}
+
+function hostMatches(host, entry) {
+  const h = String(host || '').toLowerCase();
+  let e = String(entry || '').toLowerCase();
+  if (!h || !e) return false;
+  if (e.startsWith('.')) e = e.slice(1);
+  if (!e) return false;
+  return h === e || h.endsWith(`.${e}`);
+}
+
+function normalizeSiteRegistry(list = []) {
+  const items = Array.isArray(list) ? list : [];
+  const out = [];
+  items.forEach((entry) => {
+    if (!entry) return;
+    if (typeof entry === 'string') {
+      const host = normalizeHost(entry);
+      if (host) out.push({ host, enabled: true });
+      return;
+    }
+    const host = normalizeHost(entry.host);
+    if (!host) return;
+    out.push({ host, enabled: entry.enabled !== false });
+  });
+  const seen = new Set();
+  return out.filter((item) => {
+    if (seen.has(item.host)) return false;
+    seen.add(item.host);
+    return true;
+  });
+}
+
+function buildWhitelistFromRegistry(registry) {
+  return normalizeSiteRegistry(registry)
+    .filter((item) => item.enabled)
+    .map((item) => item.host);
+}
+
+function renderSiteRegistry(registry) {
+  const root = qs('gx-site-registry');
+  if (!root) return;
+  const list = normalizeSiteRegistry(registry);
+  if (!list.length) {
+    root.innerHTML = '<div class="small">登録サイトはまだありません。</div>';
+    return;
+  }
+  root.innerHTML = '';
+  list.forEach((item) => {
+    const rule = Array.isArray(siteRulesCache)
+      ? siteRulesCache.find((r) => hostMatches(item.host, r?.host))
+      : null;
+    const includeValue = String(rule?.include || '');
+    const excludeValue = String(rule?.exclude || '');
+    const row = document.createElement('div');
+    row.className = 'site-row';
+    row.innerHTML = `
+      <div class="site-row-header">
+        <div class="site-host">${item.host}</div>
+        <div class="site-actions">
+          <label class="check" style="margin: 0;">
+            <input type="checkbox" data-site-toggle="${item.host}" ${item.enabled ? 'checked' : ''} />
+            <span>有効</span>
+          </label>
+          <button class="btn-ghost" data-site-delete="${item.host}">削除</button>
+        </div>
+      </div>
+      <div class="site-edit">
+        <input type="text" data-site-include="${item.host}" placeholder="翻訳する場所" value="${includeValue}" />
+        <input type="text" data-site-exclude="${item.host}" placeholder="翻訳しない場所" value="${excludeValue}" />
+      </div>
+    `;
+    root.appendChild(row);
+  });
+}
+
+async function persistSiteRegistry(nextRegistry, { removeHost = '' } = {}) {
+  const registry = normalizeSiteRegistry(nextRegistry);
+  const whitelist = buildWhitelistFromRegistry(registry);
+  const payload = {
+    [SETTINGS_SITE_REGISTRY_KEY]: registry,
+    [SETTINGS_SITE_WHITELIST_KEY]: whitelist
+  };
+  if (removeHost) {
+    const res = await chrome.storage.local.get([SETTINGS_SITE_RULES_KEY]);
+    const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+    const nextRules = rules.filter((r) => !hostMatches(removeHost, r?.host));
+    payload[SETTINGS_SITE_RULES_KEY] = nextRules;
+  }
+  await chrome.storage.local.set(payload);
+  siteRegistryCache = registry;
+  renderSiteRegistry(siteRegistryCache);
+  chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
 }
 
 function hostToOriginPatterns(host) {
@@ -150,11 +268,6 @@ async function updatePermissionStatus(siteWhitelist) {
   }
 }
 
-function parseWhitelist(input) {
-  return parseLineList(input)
-    .map(normalizeHost)
-    .filter(Boolean);
-}
 
 function parseSiteRules(input) {
   const lines = parseLineList(input);
@@ -172,10 +285,10 @@ function parseSiteRules(input) {
 
 function normalizeColorName(input) {
   const s = String(input || '').trim().toLowerCase();
-  if (s === 'inherit') return 'inherit';
-  if (s === 'blue') return 'blue';
-  if (s === 'green') return 'green';
-  if (s === 'orange') return 'orange';
+  if (s === 'inherit' || s === '変更なし') return 'inherit';
+  if (s === 'blue' || s === '青') return 'blue';
+  if (s === 'green' || s === '緑') return 'green';
+  if (s === 'orange' || s === '橙') return 'orange';
   return '';
 }
 
@@ -258,6 +371,64 @@ function qs(id) {
   return document.getElementById(id);
 }
 
+let siteRegistryCache = [];
+let siteRulesCache = [];
+
+function setSelectValue(id, value) {
+  const el = qs(id);
+  if (!el) return;
+  el.value = value;
+}
+
+function addLineUnique(id, line, normalize) {
+  const el = qs(id);
+  if (!el) return;
+  const lines = parseNewlineList(el.value);
+  const token = normalize ? normalize(line) : String(line || '').trim();
+  if (!token) return;
+  const exists = lines.some((l) => {
+    const current = normalize ? normalize(l) : String(l || '').trim();
+    return current === token;
+  });
+  if (!exists) lines.push(line);
+  el.value = lines.join('\n');
+}
+
+function upsertSiteRuleLine(id, line) {
+  const el = qs(id);
+  if (!el) return;
+  const parts = String(line || '').split('|').map((s) => s.trim());
+  const host = normalizeHost(parts[0]);
+  if (!host) return;
+  const lines = parseNewlineList(el.value);
+  let replaced = false;
+  const next = lines.map((current) => {
+    const currentHost = normalizeHost(String(current || '').split('|')[0] || '');
+    if (currentHost && currentHost === host) {
+      replaced = true;
+      return line;
+    }
+    return current;
+  }).filter(Boolean);
+  if (!replaced) next.push(line);
+  el.value = next.join('\n');
+}
+
+function toggleHidden(id) {
+  const el = qs(id);
+  if (!el) return;
+  el.classList.toggle('is-hidden');
+}
+
+function updateChipActive(group, values) {
+  const chips = document.querySelectorAll(`[data-chip-group="${group}"] [data-whitelist-add]`);
+  chips.forEach((chip) => {
+    const value = normalizeHost(chip.getAttribute('data-whitelist-add'));
+    const active = values.includes(value);
+    chip.classList.toggle('active', active);
+  });
+}
+
 async function load() {
   qs('gx-daykey').textContent = `DayKey: ${getModelStatsDayKey()}`;
   try {
@@ -285,7 +456,7 @@ async function load() {
     SETTINGS_CACHE_ENABLED_KEY,
     SETTINGS_GLOSSARY_KEY,
     SETTINGS_SITE_WHITELIST_KEY,
-    SETTINGS_SITE_MODE_KEY,
+    SETTINGS_SITE_REGISTRY_KEY,
     SETTINGS_SITE_RULES_KEY,
     SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY,
     SETTINGS_TRANSLATE_COLOR_RULES_KEY,
@@ -319,33 +490,46 @@ async function load() {
     .slice(0, 30);
   qs('gx-glossary').value = pairs.map((p) => `${p.from}=${p.to}`).join('\n');
 
-  const whitelist = Array.isArray(res[SETTINGS_SITE_WHITELIST_KEY]) ? res[SETTINGS_SITE_WHITELIST_KEY] : [];
-  qs('gx-whitelist').value = whitelist.map(normalizeHost).filter(Boolean).join('\n');
+  const registry = normalizeSiteRegistry(res[SETTINGS_SITE_REGISTRY_KEY]);
+  siteRulesCache = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+  if (!registry.length && Array.isArray(res[SETTINGS_SITE_WHITELIST_KEY]) && res[SETTINGS_SITE_WHITELIST_KEY].length > 0) {
+    siteRegistryCache = normalizeSiteRegistry(res[SETTINGS_SITE_WHITELIST_KEY]);
+    const migratedWhitelist = buildWhitelistFromRegistry(siteRegistryCache);
+    await chrome.storage.local.set({
+      [SETTINGS_SITE_REGISTRY_KEY]: siteRegistryCache,
+      [SETTINGS_SITE_WHITELIST_KEY]: migratedWhitelist
+    });
+  } else {
+    siteRegistryCache = registry;
+  }
+  renderSiteRegistry(siteRegistryCache);
+  const whitelist = buildWhitelistFromRegistry(siteRegistryCache);
   await updatePermissionStatus(whitelist.map(normalizeHost).filter(Boolean));
-  qs('gx-site-mode').value = (res[SETTINGS_SITE_MODE_KEY] === 'advanced') ? 'advanced' : 'simple';
-  qs('gx-site-rules').value = formatSiteRules(res[SETTINGS_SITE_RULES_KEY]);
-  qs('gx-translate-color-default').value = normalizeColorName(res[SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY]) || 'inherit';
+  const colorDefault = normalizeColorName(res[SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY]) || 'inherit';
+  qs('gx-translate-color-default').value = colorDefault;
   qs('gx-translate-color-rules').value = formatColorRules(res[SETTINGS_TRANSLATE_COLOR_RULES_KEY]);
+
+  // Update color chip visual selection
+  document.querySelectorAll('[data-select-target="gx-translate-color-default"]').forEach((chip) => {
+    chip.classList.toggle('selected', chip.getAttribute('data-select-value') === colorDefault);
+  });
 }
 
 async function save({ validateKey = true } = {}) {
-  const msg = qs('gx-msg');
-  setMsg(msg, '保存中...', true);
-
   const model = qs('gx-model').value || DEFAULT_MODEL;
   const direction = qs('gx-direction').value === DIR_JA_EN ? DIR_JA_EN : DIR_EN_JA;
   const apiKey = (qs('gx-apikey').value || '').trim();
 
   if (apiKey && !API_KEY_REGEX.test(apiKey)) {
-    setMsg(msg, 'APIキーの形式が正しくありません', false);
+    showToast('APIキーの形式が正しくありません', 'error');
     return;
   }
   if (validateKey && apiKey) {
     try {
-      setMsg(msg, 'キー確認中...', true);
+      showToast('キー確認中...', 'info');
       await testApiKey(apiKey, model);
     } catch (e) {
-      setMsg(msg, humanizeKeyTestError(e), false);
+      showToast(humanizeKeyTestError(e), 'error');
       return;
     }
   }
@@ -359,11 +543,9 @@ async function save({ validateKey = true } = {}) {
 
   const enableTranslationCache = !!qs('gx-cache-enabled').checked;
   const glossaryPairs = parseGlossaryPairs(qs('gx-glossary').value);
-  const siteWhitelist = parseWhitelist(qs('gx-whitelist').value);
-  const siteMode = qs('gx-site-mode').value === 'advanced' ? 'advanced' : 'simple';
-  const siteRules = parseSiteRules(qs('gx-site-rules').value);
   const translateColorDefault = normalizeColorName(qs('gx-translate-color-default').value) || 'inherit';
   const translateColorRules = parseColorRules(qs('gx-translate-color-rules').value);
+  const siteWhitelist = buildWhitelistFromRegistry(siteRegistryCache);
 
   await chrome.storage.local.set({
     geminiModel: model,
@@ -375,24 +557,14 @@ async function save({ validateKey = true } = {}) {
     [SETTINGS_CACHE_ENABLED_KEY]: enableTranslationCache,
     [SETTINGS_GLOSSARY_KEY]: glossaryPairs,
     [SETTINGS_SITE_WHITELIST_KEY]: siteWhitelist,
-    [SETTINGS_SITE_MODE_KEY]: siteMode,
-    [SETTINGS_SITE_RULES_KEY]: siteRules,
     [SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY]: translateColorDefault,
     [SETTINGS_TRANSLATE_COLOR_RULES_KEY]: translateColorRules,
     [MODEL_MIGRATION_KEY]: true
   });
 
-  const permissionResult = await requestHostPermissionsIfNeeded(siteWhitelist, validateKey);
-  if (validateKey && !permissionResult.granted && siteWhitelist.length > 0) {
-    setMsg(msg, '権限がないため追加サイトでは動きません', false);
-  } else {
-    setMsg(msg, '保存しました', true);
-    setTimeout(() => setMsg(msg, '', null), 2000);
-  }
+  showToast('保存しました', 'success');
 
   await updatePermissionStatus(siteWhitelist);
-
-  chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
 }
 
 async function resetStats() {
@@ -426,39 +598,35 @@ async function resetSettings() {
 }
 
 function bind() {
-  qs('gx-save').addEventListener('click', () => save({ validateKey: true }));
   qs('gx-test').addEventListener('click', async () => {
-    const msg = qs('gx-msg');
     const key = (qs('gx-apikey').value || '').trim();
     const model = qs('gx-model').value || DEFAULT_MODEL;
     if (!key) {
-      setMsg(msg, 'APIキーを入力してください', false);
+      showToast('APIキーを入力してください', 'error');
       return;
     }
     if (!API_KEY_REGEX.test(key)) {
-      setMsg(msg, 'APIキーの形式が正しくありません', false);
+      showToast('APIキーの形式が正しくありません', 'error');
       return;
     }
     try {
-      setMsg(msg, 'キー確認中...', true);
+      showToast('キー確認中...', 'info');
       await testApiKey(key, model);
-      setMsg(msg, 'キーは有効です', true);
+      showToast('キーは有効です', 'success');
     } catch (e) {
-      setMsg(msg, `キー確認失敗: ${e.message || String(e)}`, false);
+      showToast(`キー確認失敗: ${e.message || String(e)}`, 'error');
     }
   });
 
   // Autosave on change (best-effort, without key validation to avoid noisy network)
   const autosaveIds = [
+    'gx-apikey',
     'gx-model',
     'gx-direction',
     'gx-cost-limit',
     'gx-chars-limit',
     'gx-exclude-keywords',
     'gx-glossary',
-    'gx-whitelist',
-    'gx-site-mode',
-    'gx-site-rules',
     'gx-translate-color-default',
     'gx-translate-color-rules',
     'gx-cache-enabled'
@@ -469,17 +637,6 @@ function bind() {
 
   qs('gx-reset-stats').addEventListener('click', resetStats);
   qs('gx-reset-settings').addEventListener('click', resetSettings);
-  qs('gx-request-permission')?.addEventListener('click', async () => {
-    const siteWhitelist = parseWhitelist(qs('gx-whitelist').value);
-    const result = await requestHostPermissionsIfNeeded(siteWhitelist, true);
-    if (result.granted) {
-      setMsg(qs('gx-msg'), '権限を許可しました', true);
-    } else {
-      setMsg(qs('gx-msg'), '権限を許可できませんでした', false);
-    }
-    await updatePermissionStatus(siteWhitelist);
-    chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
-  });
 
   const insertExample = (id, example) => {
     const el = qs(id);
@@ -489,19 +646,97 @@ function bind() {
     save({ validateKey: false });
   };
 
-  qs('gx-insert-whitelist-example')?.addEventListener('click', () => {
-    insertExample('gx-whitelist', 'x.com\ntwitter.com');
-  });
-
-  qs('gx-insert-rules-example')?.addEventListener('click', () => {
-    insertExample(
-      'gx-site-rules',
-      'x.com | main | header, footer\ntwitter.com | main | header, footer'
-    );
-  });
-
   qs('gx-insert-color-example')?.addEventListener('click', () => {
-    insertExample('gx-translate-color-rules', 'x.com | blue\ntwitter.com | green');
+    insertExample('gx-translate-color-rules', 'x.com | 青\ntwitter.com | 緑');
+  });
+
+  const registryRoot = qs('gx-site-registry');
+  if (registryRoot) {
+    registryRoot.addEventListener('change', async (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      const host = target.getAttribute('data-site-toggle');
+      if (!host) return;
+      const next = normalizeSiteRegistry(siteRegistryCache).map((item) => {
+        if (hostMatches(host, item.host)) {
+          return { host: item.host, enabled: target.checked };
+        }
+        return item;
+      });
+      await persistSiteRegistry(next);
+    });
+    registryRoot.addEventListener('click', async (e) => {
+      const btn = e.target;
+      if (!(btn instanceof HTMLElement)) return;
+      const host = btn.getAttribute('data-site-delete');
+      if (!host) return;
+      const next = normalizeSiteRegistry(siteRegistryCache).filter((item) => !hostMatches(host, item.host));
+      await persistSiteRegistry(next, { removeHost: host });
+    });
+    // Auto-save site rules on input change
+    registryRoot.addEventListener('change', async (e) => {
+      const input = e.target;
+      if (!(input instanceof HTMLInputElement)) return;
+      const host = input.getAttribute('data-site-include') || input.getAttribute('data-site-exclude');
+      if (!host) return;
+      const includeEl = registryRoot.querySelector(`[data-site-include="${host}"]`);
+      const excludeEl = registryRoot.querySelector(`[data-site-exclude="${host}"]`);
+      const include = String(includeEl?.value || '').trim();
+      const exclude = String(excludeEl?.value || '').trim();
+      const res = await chrome.storage.local.get([SETTINGS_SITE_RULES_KEY]);
+      const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+      const nextRules = rules.filter((r) => !hostMatches(host, r?.host));
+      nextRules.push({ host: normalizeHost(host), include, exclude });
+      await chrome.storage.local.set({
+        [SETTINGS_SITE_RULES_KEY]: nextRules,
+        [SETTINGS_SITE_MODE_KEY]: 'advanced'
+      });
+      siteRulesCache = nextRules;
+      showToast('保存しました', 'success');
+    });
+  }
+
+  document.querySelectorAll('[data-toggle-target]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-toggle-target');
+      if (target) toggleHidden(target);
+    });
+  });
+
+  document.querySelectorAll('[data-select-target][data-select-value]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const target = btn.getAttribute('data-select-target');
+      const value = btn.getAttribute('data-select-value');
+      if (!target || value == null) return;
+      setSelectValue(target, value);
+      // Update visual selection state for color chips
+      document.querySelectorAll(`[data-select-target="${target}"]`).forEach((chip) => {
+        chip.classList.toggle('selected', chip.getAttribute('data-select-value') === value);
+      });
+      await save({ validateKey: false });
+      showToast('保存しました', 'success');
+    });
+  });
+
+  document.querySelectorAll('[data-step-target]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-step-target');
+      if (!target) return;
+      
+      // Toggle content sections (supports both data-step and id)
+      document.querySelectorAll('.step, .step-section').forEach((el) => {
+        const id = el.id || el.getAttribute('data-step');
+        el.classList.toggle('active', id === target);
+      });
+      
+      // Toggle tab buttons
+      document.querySelectorAll('[data-step-target]').forEach((tab) => {
+        tab.classList.toggle('active', tab.getAttribute('data-step-target') === target);
+      });
+      
+      // Scroll to top when switching tabs
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
   });
 }
 

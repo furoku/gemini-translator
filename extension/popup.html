@@ -1,240 +1,547 @@
 <!doctype html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gemini Translator</title>
-    <style>
-      :root {
-        color-scheme: light;
-        --bg: #ffffff;
-        --subtle: #f7f9f9;
-        --text: #0f1419;
-        --muted: #536471;
-        --border: #e6ecf0;
-        --primary: #1d9bf0;
-        --danger: #f4212e;
-        --success: #00ba7c;
-      }
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background: var(--subtle);
-        color: var(--text);
-        width: 360px;
-      }
-      .wrap {
-        padding: 12px 12px 14px 12px;
-      }
-      h1 {
-        font-size: 14px;
-        margin: 0 0 6px 0;
-        font-weight: 900;
-      }
-      .host {
-        font-size: 12px;
-        color: var(--muted);
-        margin-bottom: 10px;
-      }
-      label {
-        display: block;
-        font-size: 12px;
-        color: var(--muted);
-        margin: 10px 0 6px 0;
-      }
-      select,
-      input[type="text"],
-      input[type="password"],
-      textarea,
-      input[type="checkbox"],
-      button {
-        font-family: inherit;
-      }
-      select {
-        width: 100%;
-        border: 1px solid #cfd9de;
-        border-radius: 10px;
-        padding: 8px 10px;
-        background: #fff;
-        font-size: 13px;
-      }
-      input[type="text"],
-      input[type="password"],
-      textarea {
-        width: 100%;
-        border: 1px solid #cfd9de;
-        border-radius: 10px;
-        padding: 8px 10px;
-        font-size: 12px;
-        box-sizing: border-box;
-      }
-      textarea {
-        min-height: 64px;
-        resize: vertical;
-      }
-      .toggle {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 10px 12px;
-      }
-      .toggle span {
-        font-size: 13px;
-        font-weight: 700;
-      }
-      .actions {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-top: 10px;
-      }
-      .actions.single {
-        grid-template-columns: 1fr;
-      }
-      .btn {
-        border: 0;
-        border-radius: 10px;
-        padding: 10px 12px;
-        font-weight: 800;
-        cursor: pointer;
-        font-size: 12px;
-      }
-      .btn-primary {
-        background: #0f1419;
-        color: #fff;
-      }
-      .btn-ghost {
-        background: #fff;
-        border: 1px solid #cfd9de;
-        color: #0f1419;
-      }
-      .btn-danger {
-        background: var(--danger);
-        color: #fff;
-      }
-      .card {
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 10px 12px;
-        margin-top: 10px;
-      }
-      .small {
-        font-size: 11px;
-        color: var(--muted);
-        line-height: 1.45;
-      }
-      details {
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 8px 10px;
-        background: #fff;
-        margin-top: 10px;
-      }
-      details summary {
-        cursor: pointer;
-        font-weight: 800;
-        font-size: 12px;
-      }
-      .footer {
-        margin-top: 10px;
-        font-size: 11px;
-        color: var(--muted);
-      }
-      .link {
-        color: var(--primary);
-        text-decoration: none;
-        font-weight: 700;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <h1>Gemini Translator</h1>
-      <div class="host" id="gx-host">-</div>
 
-      <div class="card">
-        <div class="toggle">
-          <span>自動翻訳</span>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gemini Translator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+    :root {
+      --bg: #ffffff;
+      --bg-subtle: #f9fafb;
+      --text: #374151;
+      --text-muted: #6b7280;
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --border: #e5e7eb;
+      --danger: #f87171;
+      --success: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Noto Sans JP', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      width: 320px;
+      font-size: 13px;
+    }
+
+    .header {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .host-badge {
+      font-size: 10px;
+      background: var(--bg-subtle);
+      padding: 2px 8px;
+      border-radius: 99px;
+      color: var(--text-muted);
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .stats-inline {
+      font-size: 10px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 8px;
+    }
+
+    .stats-inline strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .main-card {
+      padding: 16px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stats-card {
+      display: none;
+    }
+
+    .stats-title {
+      display: none;
+    }
+
+    .stats-row {
+      display: none;
+    }
+
+    .stats-value {
+      display: none;
+    }
+
+    .stats-sub {
+      display: none;
+    }
+
+    .help-card {
+      margin: 12px 16px 0 16px;
+      padding: 10px 12px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      background: #fff;
+    }
+
+    .help-card strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .toggle-area {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .status-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-reset {
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 8px;
+      height: 30px;
+    }
+
+    /* Compact Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #d1d5db;
+      transition: .3s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    input:checked+.slider {
+      background-color: var(--primary);
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Action Buttons */
+    .action-grid {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .btn {
+      background: var(--bg-subtle);
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn:hover {
+      background: #ecfdf5;
+      color: var(--primary);
+    }
+
+    .btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .permission-status {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .settings-group {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .row {
+      margin-bottom: 10px;
+    }
+
+    .api-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: nowrap;
+    }
+
+    .api-row input {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .api-row .btn {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    select,
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text);
+      outline: none;
+      background: #fff;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+    }
+
+    .adv-link {
+      display: block;
+      text-align: center;
+      padding: 10px;
+      text-decoration: none;
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 11px;
+    }
+
+    .adv-link:hover {
+      color: var(--primary);
+    }
+
+    /* Color Chips */
+    .color-section {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .color-section label {
+      font-size: 10px;
+      margin-bottom: 8px;
+    }
+
+    .color-chips {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .color-chip {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .color-chip:hover {
+      transform: scale(1.1);
+    }
+
+    .color-chip.selected {
+      border-color: var(--text);
+      transform: scale(1.1);
+    }
+
+    .chip-inherit { background: #64748b; }
+    .chip-blue { background: #3b82f6; }
+    .chip-green { background: #10b981; }
+    .chip-orange { background: #f59e0b; }
+
+    /* Site Settings Drawer */
+    details {
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    details summary {
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      list-style: none;
+    }
+
+    details summary::after {
+      content: "+";
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    details[open] summary::after {
+      content: "-";
+    }
+
+    .drawer-content {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-subtle);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(15, 23, 42, 0.95);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success {
+      background: var(--success);
+    }
+
+    .toast.error {
+      background: var(--danger);
+    }
+
+    /* Button loading state */
+    .btn.loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <div class="host-badge" id="gx-host">-</div>
+    <div class="stats-inline">
+      <span><strong id="gx-stats-cost">$0</strong></span>
+      <span><strong id="gx-stats-chars">0</strong>文字</span>
+      <span id="gx-stats-limit"></span>
+    </div>
+  </div>
+
+  <div class="main-card">
+    <div class="toggle-area">
+      <div class="toggle-group">
+        <label class="switch">
           <input id="gx-auto" type="checkbox" />
-        </div>
-        <div class="small">ONにすると、対象サイトのテキストを自動で翻訳します。</div>
-        <label>翻訳方向</label>
-        <select id="gx-direction">
-          <option value="en_to_ja">英語 → 日本語</option>
-          <option value="ja_to_en">日本語 → 英語</option>
-        </select>
-        <label>モデル</label>
-        <select id="gx-model">
-          <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
-          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
-          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-          <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
-        </select>
-        <label>API Key（AI Studio）</label>
-        <input id="gx-apikey" type="password" autocomplete="new-password" placeholder="AIza..." />
-        <div class="small">APIキーは端末内に保存されます。</div>
-        <div class="actions">
-          <button class="btn btn-primary" id="gx-save">保存</button>
-          <button class="btn btn-ghost" id="gx-test">キー確認</button>
-        </div>
+          <span class="slider"></span>
+        </label>
+        <div class="status-text">自動翻訳 OFF</div>
       </div>
+      <button class="btn btn-reset" id="gx-clear-cache">キャッシュリセット</button>
+    </div>
+  </div>
 
-      <div class="card">
-        <label>このページの状態</label>
-        <div class="small" id="gx-site-status">-</div>
-        <div class="small" id="gx-permission-status">-</div>
-        <div class="actions">
-          <button class="btn btn-primary" id="gx-retranslate">再翻訳</button>
-          <button class="btn btn-ghost" id="gx-clear-cache">キャッシュ消去</button>
-        </div>
+  <div class="help-card" id="gx-help-add-site">
+    <strong>初めてのサイト追加</strong><br />
+    1. サイトの設定を開く<br />
+    2. 登録して有効化する<br />
+    3. 許可を出す（初回のみ）<br />
+    4. すぐ翻訳できます
+  </div>
+
+  <!-- Stats moved to header inline -->
+
+  <div class="settings-group">
+    <div class="row">
+      <label>翻訳設定</label>
+      <div style="display: flex; gap: 8px;">
+        <select id="gx-direction" style="flex:1;">
+          <option value="en_to_ja">英 → 日</option>
+          <option value="ja_to_en">日 → 英</option>
+        </select>
+        <select id="gx-model" style="flex:1;">
+          <option value="gemini-2.5-flash-lite">2.5 Lite</option>
+          <option value="gemini-2.5-flash">2.5 Flash</option>
+          <option value="gemini-3.0-flash">3.0 Flash</option>
+        </select>
       </div>
-
-      <details>
-        <summary>除外・コスト・サイト設定</summary>
-        <label>除外キーワード</label>
-        <textarea id="gx-exclude-keywords" placeholder="例: giveaway&#10;NFT"></textarea>
-        <label>コスト上限 (1日, USD)</label>
-        <input id="gx-cost-limit" inputmode="decimal" placeholder="例: 0.50" />
-        <label>合計文字数上限 (1日)</label>
-        <input id="gx-chars-limit" inputmode="numeric" placeholder="例: 20000" />
-        <label>ホワイトリスト（ドメインのみ）</label>
-        <textarea id="gx-whitelist" placeholder="例: x.com&#10;twitter.com"></textarea>
-        <div class="small">追加 → 保存 → 権限許可。未許可サイトは動きません。</div>
-        <div class="actions single">
-          <button class="btn btn-ghost" id="gx-request-permission">権限を許可する</button>
+      <div class="row" style="margin-top: 12px;">
+        <label>API Key</label>
+        <div class="api-row">
+          <input id="gx-apikey" type="password" placeholder="AIza..." />
+          <button id="gx-save" class="btn"
+            style="width: auto; height: 38px; padding: 0 12px; justify-content: center;">保存</button>
         </div>
-        <label>翻訳後の文字色</label>
-        <select id="gx-translate-color-default">
-          <option value="inherit">元の色のまま</option>
-          <option value="blue">青</option>
-          <option value="green">緑</option>
-          <option value="orange">オレンジ</option>
-        </select>
-        <label>サイトごとの文字色</label>
-        <textarea id="gx-translate-color-rules" placeholder="例:&#10;x.com | blue&#10;twitter.com | green"></textarea>
-        <label>翻訳モード</label>
-        <select id="gx-site-mode">
-          <option value="simple">簡易モード（body を翻訳 / ヘッダ・フッタ等は除外）</option>
-          <option value="advanced">上級モード（サイトごとに範囲指定）</option>
-        </select>
-        <label>上級モード: サイトごとの翻訳範囲</label>
-        <textarea id="gx-site-rules" placeholder="例:&#10;x.com | main | header, footer&#10;twitter.com | main | header, footer"></textarea>
-        <label>用語置換（原文=訳語）</label>
-        <textarea id="gx-glossary" placeholder="例:&#10;LLM=大規模言語モデル&#10;launch=ローンチ"></textarea>
-      </details>
-
-      <div class="footer" id="gx-status">-</div>
-
-      <div class="footer">
-        詳細設定は <a href="#" class="link" id="gx-open-options">オプション</a> へ
+        <div id="gx-msg" style="font-size: 11px; margin-top: 4px; text-align: center; color: var(--text-muted);"></div>
       </div>
     </div>
+  </div>
 
-    <script src="popup.js"></script>
-  </body>
+  <div class="color-section">
+    <label>翻訳後の文字色</label>
+    <div class="color-chips">
+      <div class="color-chip chip-inherit" data-color="inherit" title="変更なし"></div>
+      <div class="color-chip chip-blue" data-color="blue" title="青"></div>
+      <div class="color-chip chip-green" data-color="green" title="緑"></div>
+      <div class="color-chip chip-orange" data-color="orange" title="橙"></div>
+    </div>
+  </div>
+
+  <details>
+    <summary>サイト設定</summary>
+    <div class="drawer-content">
+      <div class="row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+        <label style="margin:0;">有効</label>
+        <label class="switch">
+          <input id="gx-site-enabled" type="checkbox" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-bottom: 12px;">
+        <button class="btn" id="gx-request-permission" style="flex:1; justify-content:center;">登録して許可</button>
+      </div>
+
+      <div id="gx-permission-status" class="permission-status">許可: -</div>
+
+      <label>翻訳エリア</label>
+      <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+        <input id="gx-include-selector" type="text" placeholder="body" />
+        <button class="btn" id="gx-pick-include" style="height: 32px; padding: 0 10px;">Pick</button>
+      </div>
+
+      <label>除外エリア</label>
+      <div style="display: flex; gap: 4px; margin-bottom: 10px;">
+        <input id="gx-exclude-selector" type="text" placeholder="nav, footer" />
+        <button class="btn" id="gx-pick-exclude" style="height: 32px; padding: 0 10px;">Pick</button>
+      </div>
+
+      <div style="display: flex; gap: 4px;">
+        <button class="btn" id="gx-clear-selector" style="flex: 1;">クリア</button>
+      </div>
+
+      <!-- Hidden elements for logic compatibility -->
+      <div style="display:none;">
+        <button id="gx-test"></button>
+        <div id="gx-site-registry-status"></div>
+        <div id="gx-selector-status"></div>
+        <div id="gx-site-status"></div>
+        <input type="hidden" id="gx-translate-color-default" />
+        <textarea id="gx-translate-color-rules"></textarea>
+        <textarea id="gx-exclude-keywords"></textarea>
+        <input id="gx-cost-limit" />
+        <input id="gx-chars-limit" />
+        <textarea id="gx-glossary"></textarea>
+      </div>
+    </div>
+  </details>
+
+  <a href="#" id="gx-open-options" class="adv-link">詳細設定</a>
+
+  <!-- Toast for user feedback -->
+  <div id="gx-toast" class="toast"></div>
+  <!-- Hidden status element for compatibility -->
+  <div id="gx-status" style="display:none;"></div>
+
+  <script src="popup.js"></script>
+</body>
+
 </html>
