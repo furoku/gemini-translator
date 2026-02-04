@@ -307,6 +307,15 @@ function updateRegistryStatus(host, registry) {
     return;
   }
   const item = normalizeSiteRegistry(registry).find((r) => hostMatches(host, r.host));
+  if (!item && isXSiteHost(host)) {
+    el.textContent = '登録状況: 既定（有効）';
+    if (toggle) {
+      toggle.checked = true;
+      toggle.disabled = false;
+    }
+    if (help) help.style.display = 'none';
+    return;
+  }
   if (!item) {
     el.textContent = '登録状況: 未登録';
     if (toggle) {
@@ -389,7 +398,7 @@ function parseGlossaryPairs(input) {
 }
 
 
-function upsertSiteRule(list, host, { include, exclude } = {}) {
+function upsertSiteRule(list, host, { include, exclude, spaScanEnabled } = {}) {
   const h = normalizeHost(host);
   if (!h) return list;
   const next = Array.isArray(list) ? [...list] : [];
@@ -399,13 +408,15 @@ function upsertSiteRule(list, host, { include, exclude } = {}) {
     next[idx] = {
       host: h,
       include: (include != null) ? include : String(current.include || ''),
-      exclude: (exclude != null) ? exclude : String(current.exclude || '')
+      exclude: (exclude != null) ? exclude : String(current.exclude || ''),
+      spaScanEnabled: (spaScanEnabled != null) ? !!spaScanEnabled : !!current.spaScanEnabled
     };
   } else {
     next.push({
       host: h,
       include: include || '',
-      exclude: exclude || ''
+      exclude: exclude || '',
+      spaScanEnabled: !!spaScanEnabled
     });
   }
   return next;
@@ -543,17 +554,22 @@ async function loadSettings() {
     .filter(Boolean)
     .join('\n');
   cachedRegistry = await loadRegistry(res);
+  if (cachedRegistry.length === 0 && isXSiteHost(cachedHost)) {
+    const fallback = normalizeSiteRegistry(['x.com', 'twitter.com']);
+    await persistRegistry(fallback);
+    cachedRegistry = fallback;
+  }
   cachedWhitelist = buildWhitelistFromRegistry(cachedRegistry);
   const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
   updateSelectorStatus(cachedHost, rules);
   const rule = getSiteRuleForHost(rules, cachedHost);
   if (qs('gx-include-selector')) qs('gx-include-selector').value = String(rule?.include || '');
   if (qs('gx-exclude-selector')) qs('gx-exclude-selector').value = String(rule?.exclude || '');
+  if (qs('gx-spa-scan-enabled')) qs('gx-spa-scan-enabled').checked = !!rule?.spaScanEnabled;
   const colorDefault = normalizeColorName(res[SETTINGS_TRANSLATE_COLOR_DEFAULT_KEY]) || 'inherit';
   qs('gx-translate-color-default').value = colorDefault;
   qs('gx-translate-color-rules').value = formatColorRules(res[SETTINGS_TRANSLATE_COLOR_RULES_KEY]);
   updateColorChipSelection(colorDefault);
-  setStatus('準備OK', 'info');
   updateAutoStatusText();
   refreshUsageStats();
   await updatePermissionStatus(cachedHost, cachedWhitelist);
@@ -567,6 +583,7 @@ function handleRulesChanged(nextRules) {
   const rule = getSiteRuleForHost(rules, cachedHost);
   if (qs('gx-include-selector')) qs('gx-include-selector').value = String(rule?.include || '');
   if (qs('gx-exclude-selector')) qs('gx-exclude-selector').value = String(rule?.exclude || '');
+  if (qs('gx-spa-scan-enabled')) qs('gx-spa-scan-enabled').checked = !!rule?.spaScanEnabled;
 }
 
 async function saveAll({ validateKey = false } = {}) {
@@ -789,6 +806,37 @@ async function saveSelectorsFromInputs() {
   updateRegistryStatus(cachedHost, cachedRegistry);
 }
 
+async function saveSpaScanToggle(enabled) {
+  if (!cachedHost) {
+    setStatus('サイトが特定できません', 'error');
+    return;
+  }
+  const res = await chrome.storage.local.get([
+    SETTINGS_SITE_RULES_KEY,
+    SETTINGS_SITE_REGISTRY_KEY,
+    SETTINGS_SITE_WHITELIST_KEY
+  ]);
+  const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+  const updated = upsertSiteRule(rules, cachedHost, { spaScanEnabled: !!enabled });
+  const registry = normalizeSiteRegistry(res[SETTINGS_SITE_REGISTRY_KEY] || cachedRegistry);
+  if (!registry.find((r) => hostMatches(cachedHost, r.host))) {
+    registry.push({ host: normalizeHost(cachedHost), enabled: true });
+  }
+  const whitelist = buildWhitelistFromRegistry(registry);
+  await chrome.storage.local.set({
+    [SETTINGS_SITE_RULES_KEY]: updated,
+    [SETTINGS_SITE_MODE_KEY]: 'advanced',
+    [SETTINGS_SITE_REGISTRY_KEY]: registry,
+    [SETTINGS_SITE_WHITELIST_KEY]: whitelist
+  });
+  cachedRegistry = registry;
+  cachedWhitelist = whitelist;
+  chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
+  setStatus(enabled ? 'SPA対策をオンにしました' : 'SPA対策をオフにしました', 'success');
+  updateSelectorStatus(cachedHost, updated);
+  updateRegistryStatus(cachedHost, cachedRegistry);
+}
+
 async function clearSelectorsForCurrentHost() {
   if (!cachedHost) {
     setStatus('サイトが特定できません', 'error');
@@ -869,9 +917,22 @@ async function init() {
     if (!el) return;
     el.addEventListener('change', () => saveAll({ validateKey: false }));
   });
+  const openOptionsPageAt = (hash) => {
+    const url = chrome.runtime.getURL(`options.html${hash || ''}`);
+    chrome.tabs.create({ url });
+  };
   qs('gx-open-options').addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.runtime.openOptionsPage();
+    openOptionsPageAt('#step-2');
+  });
+  qs('gx-open-site-settings')?.addEventListener('click', () => {
+    openOptionsPageAt('#step-2');
+  });
+  qs('gx-open-site-settings-include')?.addEventListener('click', () => {
+    openOptionsPageAt('#step-2');
+  });
+  qs('gx-open-site-settings-exclude')?.addEventListener('click', () => {
+    openOptionsPageAt('#step-2');
   });
 
   // Color chip selection
@@ -889,19 +950,9 @@ async function init() {
   });
   qs('gx-pick-include')?.addEventListener('click', () => pickSelector('include'));
   qs('gx-pick-exclude')?.addEventListener('click', () => pickSelector('exclude'));
-  qs('gx-clear-selector')?.addEventListener('click', clearSelectorsForCurrentHost);
-
-  const includeEl = qs('gx-include-selector');
-  const excludeEl = qs('gx-exclude-selector');
-  let selectorSaveTimer = null;
-  const scheduleSave = () => {
-    if (selectorSaveTimer) clearTimeout(selectorSaveTimer);
-    selectorSaveTimer = setTimeout(() => {
-      saveSelectorsFromInputs();
-    }, 500);
-  };
-  includeEl?.addEventListener('input', scheduleSave);
-  excludeEl?.addEventListener('input', scheduleSave);
+  qs('gx-spa-scan-enabled')?.addEventListener('change', (e) => {
+    saveSpaScanToggle(!!e.target?.checked);
+  });
 }
 
 init();

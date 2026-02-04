@@ -61,7 +61,7 @@ async function updateDynamicContentScripts() {
 
   await chrome.scripting.registerContentScripts([{
     id: DYNAMIC_SCRIPT_ID,
-    js: ['gemlab-utils.js', 'content.js'],
+    js: ['gemlab-utils.js', 'content-core.js', 'content-ui.js', 'content.js'],
     matches: allowed,
     runAt: 'document_idle'
   }]);
@@ -276,6 +276,22 @@ Draft Translation:
 ${draftText}`;
 }
 
+async function fetchWithRetry(url, options, maxRetries = 3) {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    const response = await fetch(url, options);
+    if (response.status === 429) {
+      attempt++;
+      if (attempt >= maxRetries) return response;
+      const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+      console.warn(`[Gemini Translator] Rate limited (429). Retrying in ${Math.round(delay)}ms... (Attempt ${attempt}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    } else {
+      return response;
+    }
+  }
+}
+
 async function translateWithGeminiPrompt(prompt, apiKey, modelName = DEFAULT_MODEL) {
   if (!apiKey) {
     throw new Error('API Key is missing. Please set it in the extension options.');
@@ -283,7 +299,7 @@ async function translateWithGeminiPrompt(prompt, apiKey, modelName = DEFAULT_MOD
 
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-  const response = await fetch(`${API_URL}?key=${apiKey}`, {
+  const response = await fetchWithRetry(`${API_URL}?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -316,7 +332,7 @@ async function translateWithGemini(text, apiKey, modelName = DEFAULT_MODEL, dire
 
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
-  const response = await fetch(`${API_URL}?key=${apiKey}`, {
+  const response = await fetchWithRetry(`${API_URL}?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -504,16 +520,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  updateDynamicContentScripts().catch(() => {});
+  updateDynamicContentScripts().catch(() => { });
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  updateDynamicContentScripts().catch(() => {});
+  updateDynamicContentScripts().catch(() => { });
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
   if (changes[SETTINGS_SITE_WHITELIST_KEY]) {
-    updateDynamicContentScripts().catch(() => {});
+    updateDynamicContentScripts().catch(() => { });
   }
 });

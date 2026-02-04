@@ -208,6 +208,17 @@
       color: var(--primary);
     }
 
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    .btn-outline:hover {
+      background: #f0f7f2;
+      color: var(--primary);
+    }
+
     .btn svg {
       width: 14px;
       height: 14px;
@@ -497,25 +508,34 @@
       </div>
 
       <div style="display:flex; gap:8px; margin-bottom: 12px;">
-        <button class="btn" id="gx-request-permission" style="flex:1; justify-content:center;">登録して許可</button>
+        <button class="btn btn-outline" id="gx-request-permission" style="flex:1; justify-content:center;">登録して許可</button>
       </div>
 
       <div id="gx-permission-status" class="permission-status">許可: -</div>
 
+      <div class="row" style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <label style="margin:0;">SPA対策</label>
+          <label class="switch">
+            <input id="gx-spa-scan-enabled" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+          翻訳がうまく行かない場合はこのボタンをONしてください。
+        </div>
+      </div>
+
       <label>翻訳エリア</label>
-      <div style="display: flex; gap: 4px; margin-bottom: 6px;">
-        <input id="gx-include-selector" type="text" placeholder="body" />
-        <button class="btn" id="gx-pick-include" style="height: 32px; padding: 0 10px;">Pick</button>
+      <div style="display: flex; gap: 4px; margin-bottom: 10px;">
+        <button class="btn btn-outline" id="gx-pick-include" style="flex: 1; height: 32px; padding: 0 10px;">エリアを選ぶ</button>
+        <button class="btn btn-outline" id="gx-open-site-settings-include" style="flex: 1; height: 32px; padding: 0 10px;">詳細編集</button>
       </div>
 
       <label>除外エリア</label>
       <div style="display: flex; gap: 4px; margin-bottom: 10px;">
-        <input id="gx-exclude-selector" type="text" placeholder="nav, footer" />
-        <button class="btn" id="gx-pick-exclude" style="height: 32px; padding: 0 10px;">Pick</button>
-      </div>
-
-      <div style="display: flex; gap: 4px;">
-        <button class="btn" id="gx-clear-selector" style="flex: 1;">クリア</button>
+        <button class="btn btn-outline" id="gx-pick-exclude" style="flex: 1; height: 32px; padding: 0 10px;">エリアを選ぶ</button>
+        <button class="btn btn-outline" id="gx-open-site-settings-exclude" style="flex: 1; height: 32px; padding: 0 10px;">詳細編集</button>
       </div>
 
       <!-- Hidden elements for logic compatibility -->

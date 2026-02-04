@@ -159,13 +159,20 @@ function renderSiteRegistry(registry) {
     root.innerHTML = '<div class="small">登録サイトはまだありません。</div>';
     return;
   }
+  const formatSelectorText = (value) => {
+    return String(value || '')
+      .split(/[\n,]/g)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join('\n');
+  };
   root.innerHTML = '';
   list.forEach((item) => {
     const rule = Array.isArray(siteRulesCache)
       ? siteRulesCache.find((r) => hostMatches(item.host, r?.host))
       : null;
-    const includeValue = String(rule?.include || '');
-    const excludeValue = String(rule?.exclude || '');
+    const includeValue = formatSelectorText(rule?.include || '');
+    const excludeValue = formatSelectorText(rule?.exclude || '');
     const row = document.createElement('div');
     row.className = 'site-row';
     row.innerHTML = `
@@ -180,8 +187,8 @@ function renderSiteRegistry(registry) {
         </div>
       </div>
       <div class="site-edit">
-        <input type="text" data-site-include="${item.host}" placeholder="翻訳する場所" value="${includeValue}" />
-        <input type="text" data-site-exclude="${item.host}" placeholder="翻訳しない場所" value="${excludeValue}" />
+        <textarea data-site-include="${item.host}" placeholder="翻訳する場所" rows="3">${includeValue}</textarea>
+        <textarea data-site-exclude="${item.host}" placeholder="翻訳しない場所" rows="3">${excludeValue}</textarea>
       </div>
     `;
     root.appendChild(row);
@@ -676,17 +683,30 @@ function bind() {
     // Auto-save site rules on input change
     registryRoot.addEventListener('change', async (e) => {
       const input = e.target;
-      if (!(input instanceof HTMLInputElement)) return;
+      if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLTextAreaElement)) return;
       const host = input.getAttribute('data-site-include') || input.getAttribute('data-site-exclude');
       if (!host) return;
       const includeEl = registryRoot.querySelector(`[data-site-include="${host}"]`);
       const excludeEl = registryRoot.querySelector(`[data-site-exclude="${host}"]`);
-      const include = String(includeEl?.value || '').trim();
-      const exclude = String(excludeEl?.value || '').trim();
+      const normalizeSelectorText = (value) => {
+        return String(value || '')
+          .split(/[\n,]/g)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join('\n');
+      };
+      const include = normalizeSelectorText(includeEl?.value || '');
+      const exclude = normalizeSelectorText(excludeEl?.value || '');
       const res = await chrome.storage.local.get([SETTINGS_SITE_RULES_KEY]);
       const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+      const current = rules.find((r) => hostMatches(host, r?.host));
       const nextRules = rules.filter((r) => !hostMatches(host, r?.host));
-      nextRules.push({ host: normalizeHost(host), include, exclude });
+      nextRules.push({
+        host: normalizeHost(host),
+        include,
+        exclude,
+        spaScanEnabled: !!current?.spaScanEnabled
+      });
       await chrome.storage.local.set({
         [SETTINGS_SITE_RULES_KEY]: nextRules,
         [SETTINGS_SITE_MODE_KEY]: 'advanced'
@@ -718,26 +738,38 @@ function bind() {
     });
   });
 
+  const activateStep = (target) => {
+    if (!target) return;
+    // Toggle content sections (supports both data-step and id)
+    document.querySelectorAll('.step, .step-section').forEach((el) => {
+      const id = el.id || el.getAttribute('data-step');
+      el.classList.toggle('active', id === target);
+    });
+    // Toggle tab buttons
+    document.querySelectorAll('[data-step-target]').forEach((tab) => {
+      tab.classList.toggle('active', tab.getAttribute('data-step-target') === target);
+    });
+    // Scroll to top when switching tabs
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const syncStepFromHash = () => {
+    const hash = (location.hash || '').replace('#', '');
+    if (!hash) return;
+    activateStep(hash);
+  };
+
   document.querySelectorAll('[data-step-target]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const target = btn.getAttribute('data-step-target');
       if (!target) return;
-      
-      // Toggle content sections (supports both data-step and id)
-      document.querySelectorAll('.step, .step-section').forEach((el) => {
-        const id = el.id || el.getAttribute('data-step');
-        el.classList.toggle('active', id === target);
-      });
-      
-      // Toggle tab buttons
-      document.querySelectorAll('[data-step-target]').forEach((tab) => {
-        tab.classList.toggle('active', tab.getAttribute('data-step-target') === target);
-      });
-      
-      // Scroll to top when switching tabs
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      activateStep(target);
+      history.replaceState(null, '', `#${target}`);
     });
   });
+
+  window.addEventListener('hashchange', syncStepFromHash);
+  syncStepFromHash();
 }
 
 (async function main() {
