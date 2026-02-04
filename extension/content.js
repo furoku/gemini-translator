@@ -1,8 +1,10 @@
 // Content Script - X.com Auto Translator (Floating Panel Version)
 
 // --- Constants & Config ---
-const MIN_TRANSLATION_DELAY_MS = 300;
-const MAX_TRANSLATION_DELAY_MS = 1500;
+const MIN_TRANSLATION_DELAY_MS = 1000;
+const MAX_TRANSLATION_DELAY_MS = 2500;
+const OBSERVER_DEBOUNCE_MS = 150;
+const SCROLL_SCAN_INTERVAL_MS = 800;
 const MAX_BATCH_SIZE = 12;
 const MAX_BATCH_CHARS = 4000;
 const MAX_PARALLEL_REQUESTS = 2;
@@ -2721,9 +2723,24 @@ const observerScanner = globalThis.GemLab?.createBatchedNodeScanner
     })
     : null;
 
+let observerScanTimer = null;
+const observerScanQueue = new Set();
+
+function flushObserverScanQueue() {
+    observerScanTimer = null;
+    if (!isSiteAllowed) {
+        observerScanQueue.clear();
+        return;
+    }
+    observerScanQueue.forEach((node) => enqueuePageScan(node));
+    observerScanQueue.clear();
+}
+
 function enqueueObserverScan(node) {
-    if (!isSiteAllowed) return;
-    enqueuePageScan(node);
+    if (!node) return;
+    observerScanQueue.add(node);
+    if (observerScanTimer) return;
+    observerScanTimer = setTimeout(flushObserverScanQueue, OBSERVER_DEBOUNCE_MS);
 }
 
 const observer = new MutationObserver((mutations) => {
@@ -2746,13 +2763,16 @@ function startObserving() {
     if (!target) return;
     observer.observe(target, { childList: true, subtree: true });
 
+    let lastScrollScan = 0;
+    const throttledScan = () => {
+        const now = Date.now();
+        if (now - lastScrollScan < SCROLL_SCAN_INTERVAL_MS) return;
+        lastScrollScan = now;
+        if (pageTranslationEnabled) scanPageContent({ force: false });
+    };
     const scheduleViewportScan = globalThis.GemLab?.createRafThrottled
-        ? GemLab.createRafThrottled(() => {
-            if (pageTranslationEnabled) scanPageContent({ force: false });
-        })
-        : (() => {
-            if (pageTranslationEnabled) scanPageContent({ force: false });
-        });
+        ? GemLab.createRafThrottled(throttledScan)
+        : throttledScan;
     window.addEventListener('scroll', scheduleViewportScan, { passive: true });
     window.addEventListener('resize', scheduleViewportScan);
 
