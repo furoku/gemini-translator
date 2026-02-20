@@ -1186,7 +1186,10 @@ function flushObserverScanQueue() {
         observerScanQueue.clear();
         return;
     }
-    observerScanQueue.forEach((node) => enqueuePageScan(node));
+    observerScanQueue.forEach((node) => {
+        if (isXHost && observerScanner) observerScanner.enqueue(node);
+        enqueuePageScan(node);
+    });
     observerScanQueue.clear();
 }
 
