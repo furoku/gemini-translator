@@ -293,8 +293,25 @@ function getTweetTextElements(root) {
 }
 
 function getStableText(el) {
+    if (!el) return '';
     // Avoid layout-driven line breaks that `innerText` can introduce (notably inside long URLs).
-    const raw = String(el?.textContent ?? '');
+    // Also ignore text injected by the Page Translator (data-gx-page-translated)
+    // so we get the raw English text to translate.
+    let raw = '';
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+            if (node.parentElement && node.parentElement.hasAttribute('data-gx-page-translated')) {
+                return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+        }
+    });
+
+    let currentNode;
+    while ((currentNode = walker.nextNode())) {
+        raw += currentNode.nodeValue;
+    }
+
     return raw
         .replace(/\u00A0/g, ' ')
         .replace(/[ \t]+\n/g, '\n')

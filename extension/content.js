@@ -385,6 +385,15 @@ function applyTranslation(element, translatedText) {
         const originalText = cachedOriginal || getStableText(element);
         element.dataset.geminiTranslatedOriginal = originalText;
         if (!element.dataset.geminiOriginalHtml) {
+            // Un-wrap any spans added by the generic Page Translator
+            // so we don't save the Japanese translation as the "original" HTML
+            const clones = element.querySelectorAll('span[data-gx-page-translated]');
+            clones.forEach(span => {
+                const originalStr = span.dataset.gxOriginalText;
+                if (originalStr) {
+                    span.replaceWith(document.createTextNode(originalStr));
+                }
+            });
             element.dataset.geminiOriginalHtml = element.innerHTML;
         }
         if (tweetId && isTweetIdCacheEnabled) {
