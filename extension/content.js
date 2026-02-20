@@ -561,6 +561,7 @@ function isPageNodeSkippable(node, excludeSelector) {
     if (!parent) return true;
     if (parent.closest('#gemini-x-panel, #gx-toast-container, #gemini-dock')) return true;
     if (parent.closest('script, style, noscript, iframe, textarea, input, select, button, code, pre, svg, canvas, option')) return true;
+    if (isXHost && parent.closest('[data-testid="tweetText"]')) return true;
     if (parent.isContentEditable) return true;
     if (excludeSelector) {
         try {
