@@ -296,12 +296,17 @@ function getStableText(el) {
     if (!el) return '';
     // Avoid layout-driven line breaks that `innerText` can introduce (notably inside long URLs).
     // Also ignore text injected by the Page Translator (data-gx-page-translated)
+    // and ignore the translated dual blocks (.gx-dual-translation)
     // so we get the raw English text to translate.
     let raw = '';
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
         acceptNode: function (node) {
-            if (node.parentElement && node.parentElement.hasAttribute('data-gx-page-translated')) {
-                return NodeFilter.FILTER_REJECT;
+            let parent = node.parentElement;
+            while (parent && parent !== el) {
+                if (parent.hasAttribute('data-gx-page-translated') || parent.classList.contains('gx-dual-translation')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                parent = parent.parentElement;
             }
             return NodeFilter.FILTER_ACCEPT;
         }
@@ -384,8 +389,19 @@ function getCacheKey(text) {
 }
 
 function getTweetId(element) {
+    if (!element) return '';
+    // Let's get the specific tweet ID. On X.com, tweetText elements have siblings/parents that link to status.
+    // the safest way is the closest `article` but if it's a quote tweet, there could be multiple links.
     const article = element.closest && element.closest('article');
     if (!article) return '';
+    // Avoid picking up quote tweet links. Quote tweets are usually inside a `div[role="link"]` or a deeper `div`.
+    // We want the main article timestamp link.
+    const timeEl = article.querySelector('time');
+    if (timeEl && timeEl.parentElement && timeEl.parentElement.tagName.toLowerCase() === 'a') {
+        const href = timeEl.parentElement.getAttribute('href') || '';
+        const match = href.match(/status\/(\d+)/);
+        if (match) return match[1];
+    }
     const link = article.querySelector('a[href*="/status/"]');
     if (!link) return '';
     const href = link.getAttribute('href') || '';
@@ -644,7 +660,18 @@ function shouldExcludeTweet(element, text) {
 
     const t = String(text || '').toLowerCase();
     if (!t) return false;
-    return excludedKeywords.some((kw) => kw && t.includes(kw));
+
+    // Add word boundaries for English letters to prevent substring matches (e.g. "it" blocking "with")
+    // If keyword doesn't contain letters (e.g. Japanese or symbols), fallback to includes
+    return excludedKeywords.some((kw) => {
+        if (!kw) return false;
+        const lowerKw = kw.toLowerCase();
+        if (/^[a-z0-9]+$/i.test(lowerKw)) {
+            const regex = new RegExp(`\\b${lowerKw}\\b`);
+            return regex.test(t);
+        }
+        return t.includes(lowerKw);
+    });
 }
 
 function shouldSkipByContent(text) {
@@ -697,7 +724,7 @@ function hasTruncatedContent(element) {
     const showMoreInside = element.querySelector(
         '[data-testid="tweet-text-show-more-link"], [data-testid="show-more-link"], div[role="button"][data-testid$="show-more"]'
     );
-    if (showMoreInside) return true;
+    if (showMoreInside && showMoreInside.offsetParent !== null) return true;
 
     // Check for sibling "Show more" button (Twitter sometimes puts it outside tweetText)
     const parent = element.parentElement;
@@ -705,7 +732,7 @@ function hasTruncatedContent(element) {
         const showMoreSibling = parent.querySelector(
             '[data-testid="tweet-text-show-more-link"], [data-testid="show-more-link"]'
         );
-        if (showMoreSibling && showMoreSibling !== element && !element.contains(showMoreSibling)) {
+        if (showMoreSibling && showMoreSibling !== element && !element.contains(showMoreSibling) && showMoreSibling.offsetParent !== null) {
             return true;
         }
     }
@@ -713,7 +740,11 @@ function hasTruncatedContent(element) {
 }
 
 function expandIfTruncated(element) {
-    if (!hasTruncatedContent(element)) return false;
+    if (!hasTruncatedContent(element)) {
+        // Clear flag if button is legitimately gone (e.g. text already expanded)
+        delete element.dataset.geminiShowMoreExpanded;
+        return false;
+    }
 
     const showMoreBtn = element.querySelector(
         '[data-testid="tweet-text-show-more-link"], [data-testid="show-more-link"], div[role="button"][data-testid$="show-more"]'
@@ -721,16 +752,22 @@ function expandIfTruncated(element) {
         '[data-testid="tweet-text-show-more-link"], [data-testid="show-more-link"]'
     ));
 
-    if (showMoreBtn && !element.dataset.geminiShowMoreExpanded) {
+    if (showMoreBtn) {
+        // Only click if it's visible and we haven't successfully clicked this exact one.
+        // X.com might re-render or leave a stale button around for a bit.
+        if (element.dataset.geminiShowMoreExpanded === 'true') {
+            // We already tried to expand. X.com might be taking a moment to fetch.
+            // Wait for MutationObserver to kick in after it finishes.
+            return true;
+        }
+
         element.dataset.geminiShowMoreExpanded = 'true';
         try {
             showMoreBtn.click();
-            // X.com takes a moment to fetch/render the rest of the text.
-            // Returning true tells the caller to stop processing this element for now.
-            // The MutationObserver will catch the newly rendered text and re-trigger checkAndQueue.
             return true;
         } catch (e) {
             // fallback if click fails
+            delete element.dataset.geminiShowMoreExpanded;
             return false;
         }
     }
