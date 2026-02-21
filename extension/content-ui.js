@@ -691,6 +691,7 @@ function setupPanelLogic(panel) {
         // Initial scan after storage is loaded (ensures toggle state is correct)
         loadPageCache(() => {
         if (toggle.checked && isSiteAllowed) {
+            if (isXHost) scanExistingTweets();
             scanPageContent({ force: false });
         }
     });
@@ -702,6 +703,7 @@ function setupPanelLogic(panel) {
         updateToggleStyle(checked);
         chrome.storage.local.set({ isAutoTranslateEnabled: checked });
         if (checked) {
+            if (isXHost) scanExistingTweets();
             scanPageContent({ force: false });
             processQueue();
         } else {
@@ -710,6 +712,7 @@ function setupPanelLogic(panel) {
     });
 
     translateOnceBtn?.addEventListener('click', () => {
+        if (isXHost) scanExistingTweets({ force: true });
         scanPageContent({ force: true });
         processQueue({ force: true });
     });
@@ -725,6 +728,7 @@ function setupPanelLogic(panel) {
         chrome.storage.local.set({ translationDirection: dir });
         resetTranslations();
         if (toggle.checked) {
+            if (isXHost) scanExistingTweets();
             scanPageContent({ force: false });
             processQueue();
         }

@@ -317,21 +317,39 @@ async function processQueue({ force = false } = {}) {
 
 function renderTranslation(element) {
     const translated = element.dataset.geminiTranslatedText || '';
-    // Simply replace content with translation (no dual blocks needed)
-    element.innerHTML = '';
-    applyTranslateColor(element);
-    element.style.whiteSpace = 'pre-wrap';
+
+    // Preserve original DOM (do NOT destroy innerHTML) so X.com's React can
+    // still manage the element (e.g. Show More expansion).
+    let originalBlock = element.querySelector('.gx-original-block');
+    let translationBlock = element.querySelector('.gx-dual-translation');
+
+    if (!originalBlock) {
+        originalBlock = document.createElement('div');
+        originalBlock.className = 'gx-original-block';
+        // Move all existing children into the wrapper (preserves React DOM)
+        while (element.firstChild) {
+            originalBlock.appendChild(element.firstChild);
+        }
+        element.appendChild(originalBlock);
+    }
+    originalBlock.style.display = 'none';
+
+    // Remove old translation block if exists, then rebuild
+    if (translationBlock) translationBlock.remove();
+
+    translationBlock = document.createElement('div');
+    translationBlock.className = 'gx-dual-translation';
+    applyTranslateColor(translationBlock);
+    translationBlock.style.whiteSpace = 'pre-wrap';
 
     // Convert URLs to clickable links
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     let lastIndex = 0;
     let match;
     while ((match = urlRegex.exec(translated)) !== null) {
-        // Add text before the URL
         if (match.index > lastIndex) {
-            element.appendChild(document.createTextNode(translated.slice(lastIndex, match.index)));
+            translationBlock.appendChild(document.createTextNode(translated.slice(lastIndex, match.index)));
         }
-        // Add the URL as a link
         const link = document.createElement('a');
         link.href = match[1];
         link.textContent = match[1];
@@ -339,30 +357,36 @@ function renderTranslation(element) {
         link.rel = 'noopener noreferrer';
         const color = getTranslateColorForHost(currentHost);
         link.style.color = color || '';
-        element.appendChild(link);
+        translationBlock.appendChild(link);
         lastIndex = urlRegex.lastIndex;
     }
-    // Add remaining text after the last URL
     if (lastIndex < translated.length) {
-        element.appendChild(document.createTextNode(translated.slice(lastIndex)));
+        translationBlock.appendChild(document.createTextNode(translated.slice(lastIndex)));
     }
 
+    element.appendChild(translationBlock);
+    element.dataset.geminiTranslatedMode = 'translation';
     flashDone(element);
 }
 
 function renderOriginal(element) {
-    ensureDualBlocks(element);
     const originalBlock = element.querySelector('.gx-original-block');
-    const pill = createPill('翻訳');
-    pill.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleMode(element);
-    });
-    // Keep original markup intact; just ensure pill exists
-    const existingPill = originalBlock.querySelector('.gx-pill');
-    if (existingPill) existingPill.remove();
-    originalBlock.appendChild(pill);
-    setDisplayByMode(element, 'original');
+    const translationBlock = element.querySelector('.gx-dual-translation');
+    if (originalBlock) originalBlock.style.display = '';
+    if (translationBlock) translationBlock.style.display = 'none';
+    element.dataset.geminiTranslatedMode = 'original';
+
+    // Add toggle pill to original block
+    if (originalBlock) {
+        const existingPill = originalBlock.querySelector('.gx-pill');
+        if (existingPill) existingPill.remove();
+        const pill = createPill('翻訳');
+        pill.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMode(element);
+        });
+        originalBlock.appendChild(pill);
+    }
 }
 
 function toggleMode(element) {
@@ -370,7 +394,15 @@ function toggleMode(element) {
     if (mode === 'translation') {
         renderOriginal(element);
     } else {
-        renderTranslation(element);
+        const originalBlock = element.querySelector('.gx-original-block');
+        const translationBlock = element.querySelector('.gx-dual-translation');
+        if (originalBlock) {
+            originalBlock.style.display = 'none';
+            const pill = originalBlock.querySelector('.gx-pill');
+            if (pill) pill.remove();
+        }
+        if (translationBlock) translationBlock.style.display = '';
+        element.dataset.geminiTranslatedMode = 'translation';
     }
 }
 
@@ -571,6 +603,8 @@ function isPageNodeSkippable(node, excludeSelector) {
     if (parent.closest('#gemini-x-panel, #gx-toast-container, #gemini-dock')) return true;
     if (parent.closest('script, style, noscript, iframe, textarea, input, select, button, code, pre, svg, canvas, option')) return true;
     if (isXHost && parent.closest('[data-testid="tweetText"]')) return true;
+    if (isXHost && parent.closest('[data-testid="User-Name"]')) return true;
+    if (isXHost && parent.closest('[data-testid="trend"]')) return true;
     if (parent.isContentEditable) return true;
     if (excludeSelector) {
         try {
@@ -1080,8 +1114,10 @@ function checkAndQueue(element, { force = false } = {}) {
         return;
     }
 
-    // If tweet is truncated, expand first; queue will be retriggered after expansion
-    if (expandIfTruncated(element)) return;
+    // Note: expandIfTruncated auto-click is disabled because X.com sometimes
+    // navigates to tweet detail page instead of expanding inline.
+    // Truncated tweets will be translated with visible text only.
+    // if (expandIfTruncated(element)) return;
 
     if (tweetId) {
         const cachedTranslation = isTweetIdCacheEnabled ? translationByTweetId.get(tweetId) : null;
@@ -1177,6 +1213,13 @@ const observerScanner = globalThis.GemLab?.createBatchedNodeScanner
             if (!n || n.nodeType !== Node.ELEMENT_NODE) return;
             if (n.getAttribute && n.getAttribute('data-testid') === 'tweetText') {
                 checkAndQueue(n);
+                return;
+            }
+            // If node is inside a tweetText (e.g., Show More expanded child),
+            // re-process the parent tweetText for retranslation.
+            const parentTweet = n.closest && n.closest('[data-testid="tweetText"]');
+            if (parentTweet) {
+                checkAndQueue(parentTweet);
                 return;
             }
             const tweets = n.querySelectorAll ? n.querySelectorAll('[data-testid="tweetText"]') : [];

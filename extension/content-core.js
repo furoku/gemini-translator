@@ -16,93 +16,22 @@ const JAPANESE_REGEX = /[ぁ-んァ-ン]/;
 const DIR_EN_JA = 'en_to_ja';
 const DIR_JA_EN = 'ja_to_en';
 
-// Completion flash only (no loading indicator - translation is fast)
 const SHIMMER_STYLE = `
-  @keyframes gx-mosaic {
-    0% { background-position: 0% 50%; filter: blur(0.9px); }
-    100% { background-position: 200% 50%; filter: blur(0.9px); }
-  }
   @keyframes gx-reveal {
-    0% { opacity: 0; filter: blur(1.2px); transform: translateY(1px); }
+    0% { opacity: 0; filter: blur(4px); transform: translateY(2px); }
     100% { opacity: 1; filter: blur(0); transform: translateY(0); }
   }
-  @keyframes gx-scanline {
-    0% { background-position: 0% -200%; opacity: 0; }
-    10% { opacity: 1; }
-    100% { background-position: 0% 200%; opacity: 0; }
-  }
-  @keyframes gx-focus {
-    0% { opacity: 0.6; filter: blur(2px); transform: scale(1.01); }
-    100% { opacity: 1; filter: blur(0); transform: scale(1); }
-  }
-  @keyframes gx-ripple {
-    0% { clip-path: inset(0 100% 0 0); filter: blur(1px); }
-    100% { clip-path: inset(0 0 0 0); filter: blur(0); }
-  }
-  @keyframes gx-wave-reveal {
-    0% { clip-path: inset(0 0 0 0); opacity: 1; }
-    100% { clip-path: inset(0 100% 0 0); opacity: 0.9; }
-  }
   .gx-mosaic,
-  .gx-mosaic * {
-    color: transparent !important;
-    -webkit-text-fill-color: transparent;
-    background-image:
-      radial-gradient(circle, var(--gx-mosaic-color-strong, rgba(29, 155, 240, 1)) 1.1px, transparent 1.2px),
-      radial-gradient(circle, var(--gx-mosaic-color-soft, rgba(29, 155, 240, 0.55)) 1.1px, transparent 1.2px);
-    background-size: 8px 8px, 8px 8px;
-    background-position: 0 0, 4px 4px;
-    -webkit-background-clip: text;
-    background-clip: text;
-    animation: gx-mosaic 0.55s steps(8, end) infinite;
-    text-shadow: 0 0 5px var(--gx-mosaic-shadow, rgba(29, 155, 240, 0.45));
+  .gx-shimmer {
+    /* Simple mosaic (blur) effect during translation */
+    filter: blur(4px) !important;
+    opacity: 0.7 !important;
+    transition: filter 0.3s ease, opacity 0.3s ease;
+    pointer-events: none; /* Prevent interaction while translating */
   }
   .gx-reveal {
-    animation: gx-reveal 220ms ease-out;
-  }
-  .gx-scanline {
-    position: relative;
-  }
-  .gx-scanline::after {
-    content: "";
-    position: absolute;
-    inset: -4px 0;
-    pointer-events: none;
-    background-image: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.55) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
-    mix-blend-mode: screen;
-    animation: gx-scanline 320ms linear;
-  }
-  .gx-focus {
-    animation: gx-focus 240ms ease-out;
-  }
-  .gx-ripple {
-    animation: gx-ripple 280ms ease-out;
-  }
-  .gx-wave {
-    position: relative;
-  }
-  .gx-wave::after {
-    content: attr(data-gx-wave-text);
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    background-image:
-      radial-gradient(circle, var(--gx-mosaic-color-strong, rgba(29, 155, 240, 1)) 1.1px, transparent 1.2px),
-      radial-gradient(circle, var(--gx-mosaic-color-soft, rgba(29, 155, 240, 0.55)) 1.1px, transparent 1.2px);
-    background-size: 8px 8px, 8px 8px;
-    background-position: 0 0, 4px 4px;
-    -webkit-background-clip: text;
-    background-clip: text;
-    text-shadow: 0 0 5px var(--gx-mosaic-shadow, rgba(29, 155, 240, 0.45));
-    white-space: pre-wrap;
-    animation: gx-wave-reveal 320ms ease-out;
+    /* Reveal effect when translation is done */
+    animation: gx-reveal 300ms ease-out forwards;
   }
 `;
 
@@ -183,6 +112,7 @@ const expandedRetranslated = new Set();
 let triggerOnboarding = null; // populated inside panel logic
 let translationDirection = DIR_EN_JA;
 let excludedKeywords = [];
+const excludedHandles = new Set();
 let dailyCostLimitUsd = null;
 let dailyTotalCharsLimit = null;
 let isTranslationCacheEnabled = true;
@@ -210,7 +140,7 @@ function getModelStatsDayKey(now = new Date()) {
     const y = shifted.getFullYear();
     const m = String(shifted.getMonth() + 1).padStart(2, '0');
     const d = String(shifted.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return `${y} -${m} -${d} `;
 }
 
 function maybeResetModelStatsAt4am() {
@@ -294,33 +224,72 @@ function getTweetTextElements(root) {
 
 function getStableText(el) {
     if (!el) return '';
-    // Avoid layout-driven line breaks that `innerText` can introduce (notably inside long URLs).
-    // Also ignore text injected by the Page Translator (data-gx-page-translated)
-    // and ignore the translated dual blocks (.gx-dual-translation)
-    // so we get the raw English text to translate.
-    let raw = '';
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
-        acceptNode: function (node) {
-            let parent = node.parentElement;
-            while (parent && parent !== el) {
-                if (parent.hasAttribute('data-gx-page-translated') || parent.classList.contains('gx-dual-translation')) {
-                    return NodeFilter.FILTER_REJECT;
-                }
-                parent = parent.parentElement;
-            }
-            return NodeFilter.FILTER_ACCEPT;
-        }
-    });
 
-    let currentNode;
-    while ((currentNode = walker.nextNode())) {
-        raw += currentNode.nodeValue;
+    // 翻訳の対象外となる要素（ページ翻訳用、二重翻訳ブロック、非表示要素など）
+    function isExcluded(node) {
+        if (node.nodeType !== Node.ELEMENT_NODE) return false;
+        if (node.hasAttribute('data-gx-page-translated') || node.classList.contains('gx-dual-translation')) return true;
+        const style = window.getComputedStyle(node);
+        if (style.display === 'none' || style.visibility === 'hidden') return true;
+        return false;
     }
+
+    let raw = '';
+
+    // DOMツリーを再帰的に走査してテキストを構築する
+    function traverse(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            raw += node.nodeValue;
+            return;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        if (isExcluded(node)) return;
+
+        // <br>タグは改行として扱う
+        if (node.tagName.toLowerCase() === 'br') {
+            raw += '\n';
+            return;
+        }
+
+        // X.comの絵文字（<img>）などの置換要素は、前後にスペースがないと前後の単語がくっつく原因になるため
+        // 代替テキスト（alt）があればそれを取得し、なければ空白を補う
+        if (node.tagName.toLowerCase() === 'img') {
+            const alt = node.getAttribute('alt');
+            if (alt) {
+                // alt属性がある場合（例: 絵文字の "🚨"）
+                raw += alt;
+            } else {
+                raw += ' ';
+            }
+            return;
+        }
+
+        // ブロックレベル要素に入る前にはスペースや改行を補う（必要に応じて）
+        const style = window.getComputedStyle(node);
+        const isBlock = style.display === 'block' || style.display === 'flex' || style.display === 'grid' || node.tagName.toLowerCase() === 'div' || node.tagName.toLowerCase() === 'p';
+
+        if (isBlock && raw.length > 0 && !raw.endsWith('\n') && !raw.endsWith(' ')) {
+            raw += '\n';
+        }
+
+        for (const child of node.childNodes) {
+            traverse(child);
+        }
+
+        if (isBlock && raw.length > 0 && !raw.endsWith('\n') && !raw.endsWith(' ')) {
+            raw += '\n';
+        }
+    }
+
+    traverse(el);
 
     return raw
         .replace(/\u00A0/g, ' ')
+        // 連続する改行やスペースを整理
         .replace(/[ \t]+\n/g, '\n')
         .replace(/\n[ \t]+/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
         .trim();
 }
 
@@ -344,7 +313,7 @@ function maskUrls(text, tokenPrefix) {
         return { core, suffix };
     };
 
-    const makeToken = () => `<<${tokenPrefix}_URL_${nextId++}>>`;
+    const makeToken = () => `<< ${tokenPrefix}_URL_${nextId++}>> `;
 
     const replaceAll = (src, re) => src.replace(re, (match) => {
         const { core, suffix } = splitSuffix(match);
@@ -394,7 +363,7 @@ function getTweetId(element) {
     // the safest way is the closest `article` but if it's a quote tweet, there could be multiple links.
     const article = element.closest && element.closest('article');
     if (!article) return '';
-    // Avoid picking up quote tweet links. Quote tweets are usually inside a `div[role="link"]` or a deeper `div`.
+    // Avoid picking up quote tweet links. Quote tweets are usually inside a `div[role = "link"]` or a deeper `div`.
     // We want the main article timestamp link.
     const timeEl = article.querySelector('time');
     if (timeEl && timeEl.parentElement && timeEl.parentElement.tagName.toLowerCase() === 'a') {
@@ -449,7 +418,7 @@ function hostMatches(host, entry) {
     if (!h || !e) return false;
     if (e.startsWith('.')) e = e.slice(1);
     if (!e) return false;
-    return h === e || h.endsWith(`.${e}`);
+    return h === e || h.endsWith(`.${e} `);
 }
 
 function isHostAllowed(host) {
@@ -592,9 +561,9 @@ function getPageCacheKey() {
     try {
         const url = new URL(location.href);
         url.hash = '';
-        return `${PAGE_CACHE_KEY_PREFIX}${url.toString()}`;
+        return `${PAGE_CACHE_KEY_PREFIX}${url.toString()} `;
     } catch (e) {
-        return `${PAGE_CACHE_KEY_PREFIX}${location.origin}${location.pathname}${location.search || ''}`;
+        return `${PAGE_CACHE_KEY_PREFIX}${location.origin}${location.pathname}${location.search || ''} `;
     }
 }
 
@@ -667,7 +636,7 @@ function shouldExcludeTweet(element, text) {
         if (!kw) return false;
         const lowerKw = kw.toLowerCase();
         if (/^[a-z0-9]+$/i.test(lowerKw)) {
-            const regex = new RegExp(`\\b${lowerKw}\\b`);
+            const regex = new RegExp(`\\b${lowerKw} \\b`);
             return regex.test(t);
         }
         return t.includes(lowerKw);
@@ -697,7 +666,19 @@ function shouldSkipByContent(text) {
 
 function revertTweetElement(el) {
     if (!el) return;
-    if (el.dataset?.geminiOriginalHtml) {
+    // Remove translation block
+    const translationBlock = el.querySelector('.gx-dual-translation');
+    if (translationBlock) translationBlock.remove();
+    // Unwrap original block (move children back to element)
+    const originalBlock = el.querySelector('.gx-original-block');
+    if (originalBlock) {
+        const pill = originalBlock.querySelector('.gx-pill');
+        if (pill) pill.remove();
+        while (originalBlock.firstChild) {
+            el.insertBefore(originalBlock.firstChild, originalBlock);
+        }
+        originalBlock.remove();
+    } else if (el.dataset?.geminiOriginalHtml) {
         el.innerHTML = el.dataset.geminiOriginalHtml;
     }
     if (el.dataset) {
