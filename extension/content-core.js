@@ -45,6 +45,7 @@ const PRICING = {
     'gemini-2.0-flash': { input: 0.10, output: 0.40 },
     'gemini-2.5-flash': { input: 0.30, output: 2.50 },
     'gemini-3-flash-preview': { input: 0.30, output: 2.50 },
+    'gemini-3.1-flash-lite': { input: 0.10, output: 0.40 },
     'default': { input: 0.10, output: 0.40 }
 };
 const API_KEY_REGEX = /^AIza[0-9A-Za-z\-_]{35}$/;

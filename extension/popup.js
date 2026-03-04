@@ -8,6 +8,7 @@ const PRICING = {
   'gemini-2.0-flash': { input: 0.10, output: 0.40 },
   'gemini-2.5-flash': { input: 0.30, output: 2.50 },
   'gemini-3-flash-preview': { input: 0.30, output: 2.50 },
+  'gemini-3.1-flash-lite': { input: 0.10, output: 0.40 },
   'default': { input: 0.10, output: 0.40 }
 };
 const DIR_EN_JA = 'en_to_ja';
@@ -242,7 +243,7 @@ async function updatePermissionStatus(host, whitelist) {
     el.style.color = '#536471';
     if (btn) {
       btn.disabled = true;
-      btn.textContent = '登録して許可';
+      btn.textContent = '保存';
     }
     return;
   }
@@ -252,7 +253,7 @@ async function updatePermissionStatus(host, whitelist) {
     el.style.color = '#f59e0b';
     if (btn) {
       btn.disabled = false;
-      btn.textContent = '登録して許可';
+      btn.textContent = '保存';
     }
     return;
   }
@@ -287,7 +288,7 @@ async function updatePermissionStatus(host, whitelist) {
     el.style.color = '#f4212e';
     if (btn) {
       btn.disabled = false;
-      btn.textContent = '登録して許可';
+      btn.textContent = '保存';
     }
   }
 }

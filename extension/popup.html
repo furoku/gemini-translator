@@ -92,6 +92,7 @@
     }
 
     .help-card {
+      display: none;
       margin: 12px 16px 0 16px;
       padding: 10px 12px;
       border: 1px dashed var(--border);
@@ -138,8 +139,8 @@
     .switch {
       position: relative;
       display: inline-block;
-      width: 44px;
-      height: 24px;
+      width: 60px;
+      height: 32px;
     }
 
     .switch input {
@@ -163,10 +164,10 @@
     .slider:before {
       position: absolute;
       content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
+      height: 24px;
+      width: 24px;
+      left: 4px;
+      bottom: 4px;
       background-color: white;
       transition: .3s;
       border-radius: 50%;
@@ -178,7 +179,7 @@
     }
 
     input:checked+.slider:before {
-      transform: translateX(20px);
+      transform: translateX(28px);
     }
 
     /* Action Buttons */
@@ -472,17 +473,21 @@
           <option value="gemini-2.5-flash-lite">2.5 Lite</option>
           <option value="gemini-2.5-flash">2.5 Flash</option>
           <option value="gemini-3.0-flash">3.0 Flash</option>
+          <option value="gemini-3.1-flash-lite">3.1 Lite</option>
         </select>
       </div>
-      <div class="row" style="margin-top: 12px;">
-        <label>API Key</label>
-        <div class="api-row">
-          <input id="gx-apikey" type="password" placeholder="AIza..." />
-          <button id="gx-save" class="btn"
-            style="width: auto; height: 38px; padding: 0 12px; justify-content: center;">保存</button>
+      <details style="margin-top: 12px; border: none; background: transparent;">
+        <summary style="border: none; padding: 4px 0; font-size: 11px; color: var(--text-muted); font-weight: 500;">🔑 API設定</summary>
+        <div class="row" style="margin-top: 8px;">
+          <label>API Key</label>
+          <div class="api-row">
+            <input id="gx-apikey" type="password" placeholder="AIza..." />
+            <button id="gx-save" class="btn"
+              style="width: auto; height: 38px; padding: 0 12px; justify-content: center;">保存</button>
+          </div>
+          <div id="gx-msg" style="font-size: 11px; margin-top: 4px; text-align: center; color: var(--text-muted);"></div>
         </div>
-        <div id="gx-msg" style="font-size: 11px; margin-top: 4px; text-align: center; color: var(--text-muted);"></div>
-      </div>
+      </details>
     </div>
   </div>
 
@@ -508,7 +513,7 @@
       </div>
 
       <div style="display:flex; gap:8px; margin-bottom: 12px;">
-        <button class="btn btn-outline" id="gx-request-permission" style="flex:1; justify-content:center;">登録して許可</button>
+        <button class="btn btn-outline" id="gx-request-permission" style="flex:1; justify-content:center;">保存</button>
       </div>
 
       <div id="gx-permission-status" class="permission-status">許可: -</div>
