@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Gemini Translator",
-    "version": "26.0304.2204",
+    "version": "26.0304.2205",
     "description": "Auto-translate English tweets on X.com to Japanese using Gemini API.",
     "permissions": [
         "storage",

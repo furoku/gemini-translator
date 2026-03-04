@@ -145,7 +145,6 @@ function createPanel() {
                     <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
                     <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                     <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                     <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
                     <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
                 </select>
@@ -216,7 +215,6 @@ function createPanel() {
                                 <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
                                 <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                                 <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
-                                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                                 <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
                                 <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
                             </select>
