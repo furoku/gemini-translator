@@ -147,7 +147,7 @@ function createPanel() {
                     <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
                     <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                     <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
-                    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite</option>
+                    <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
                 </select>
                 <button id="gx-onboard-save" type="button" style="width:100%; background-color:#0f1419; color:#ffffff; border:2px solid transparent; padding:12px; border-radius:9999px; font-weight:700; font-size:14px; cursor:pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;">保存して開始</button>
                 <div id="gx-onboard-msg" style="font-size:12px; color:#00ba7c; margin-top:8px; min-height:16px;"></div>
@@ -218,7 +218,7 @@ function createPanel() {
                                 <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite</option>
                                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                                 <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
-                                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite</option>
+                                <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite</option>
                             </select>
                             <div style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #536471;">
                                 <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 16px; height: 16px; fill: currentColor;"><path d="M3.543 8.96l1.414-1.42L12 14.59l7.043-7.05 1.414 1.42L12 17.41 3.543 8.96z"></path></svg>
