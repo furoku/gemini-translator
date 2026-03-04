@@ -9,4 +9,5 @@ output/
 findings.md
 progress.md
 task_plan.md
-scripts/
+scripts/*
+!scripts/validate-manifest.mjs
