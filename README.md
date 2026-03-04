@@ -56,7 +56,7 @@ git clone https://github.com/furoku/gemini-translator.git
 
 | 項目 | 説明 |
 |------|------|
-| モデル | 使用するGeminiモデル（デフォルト: gemini-2.5-flash-lite） |
+| モデル | 使用するGeminiモデル（デフォルト: gemini-2.5-flash-lite）<br>選択肢: `gemini-2.5-flash-lite` / `gemini-3.1-flash-lite-preview` |
 | 翻訳方向 | 英語→日本語 または 日本語→英語 |
 | 自動翻訳 | ON/OFF |
 
