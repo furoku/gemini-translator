@@ -58,7 +58,7 @@ extension/
 
 ```javascript
 geminiApiKey           // APIキー
-geminiModel            // モデル名（デフォルト: gemini-2.0-flash-lite）
+geminiModel            // モデル名（デフォルト: gemini-2.5-flash-lite）
 translationDirection   // 'en_to_ja' または 'ja_to_en'
 isAutoTranslateEnabled // 自動翻訳ON/OFF
 excludeKeywords        // 除外キーワード配列

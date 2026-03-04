@@ -6,8 +6,10 @@ output/
 .codex/
 .claude/
 .jj/
+.harness/
 findings.md
 progress.md
 task_plan.md
+MEMORY.md
 scripts/*
 !scripts/validate-manifest.mjs
