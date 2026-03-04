@@ -187,6 +187,8 @@ API利用料金が心配なときのための安全装置です。上限に達�
 - 行動規範: `CODE_OF_CONDUCT.md`
 - セキュリティ報告: `SECURITY.md`
 - プライバシーポリシー: `PRIVACY.md`
+- 更新履歴: `CHANGELOG.md`
+- サポート窓口: `SUPPORT.md`
 
 ## ライセンス
 
