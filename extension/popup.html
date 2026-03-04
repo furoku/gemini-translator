@@ -445,7 +445,7 @@
           <input id="gx-auto" type="checkbox" />
           <span class="slider"></span>
         </label>
-        <div class="status-text">自動翻訳 OFF</div>
+        <div class="status-text">翻訳 OFF</div>
       </div>
       <button class="btn btn-reset" id="gx-clear-cache">キャッシュリセット</button>
     </div>
@@ -453,9 +453,9 @@
 
   <div class="help-card" id="gx-help-add-site">
     <strong>初めてのサイト追加</strong><br />
-    1. サイトの設定を開く<br />
-    2. 登録して有効化する<br />
-    3. 許可を出す（初回のみ）<br />
+    1. このサイトを登録する<br />
+    2. 許可を出す（初回のみ）<br />
+    3. 翻訳エリアを必要に応じて選ぶ<br />
     4. すぐ翻訳できます
   </div>
 
@@ -499,8 +499,8 @@
     </div>
   </div>
 
-  <details>
-    <summary>サイト設定</summary>
+  <div style="margin-top: 12px;">
+    <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px; color: var(--text-main);">サイト設定</div>
     <div class="drawer-content">
       <div class="row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
         <label style="margin:0;">有効</label>
@@ -511,9 +511,11 @@
       </div>
 
       <div style="display:flex; gap:8px; margin-bottom: 12px;">
-        <button class="btn btn-outline" id="gx-request-permission" style="flex:1; justify-content:center;">保存</button>
+        <button class="btn btn-outline" id="gx-register-site" style="flex:1; justify-content:center;">登録</button>
+        <button class="btn btn-outline" id="gx-request-permission" style="flex:1; justify-content:center;">許可</button>
       </div>
 
+      <div id="gx-registry-status" class="permission-status">登録: -</div>
       <div id="gx-permission-status" class="permission-status">許可: -</div>
 
       <div class="row" style="margin-bottom: 12px;">
@@ -555,7 +557,7 @@
         <textarea id="gx-glossary"></textarea>
       </div>
     </div>
-  </details>
+  </div>
 
   <a href="#" id="gx-open-options" class="adv-link">詳細設定</a>
 

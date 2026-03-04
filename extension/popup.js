@@ -49,7 +49,7 @@ function updateAutoStatusText() {
   const autoEl = qs('gx-auto');
   const statusText = document.querySelector('.status-text');
   if (!autoEl || !statusText) return;
-  statusText.textContent = autoEl.checked ? '自動翻訳 ON' : '自動翻訳 OFF';
+  statusText.textContent = autoEl.checked ? '翻訳 ON' : '翻訳 OFF';
 }
 
 function estimateCostUsdForModelChars(modelId, inputChars, outputChars) {
@@ -241,17 +241,7 @@ async function updatePermissionStatus(host, whitelist) {
     el.style.color = '#536471';
     if (btn) {
       btn.disabled = true;
-      btn.textContent = '保存';
-    }
-    return;
-  }
-  const registered = normalizeSiteRegistry(cachedRegistry).some((r) => hostMatches(host, r.host));
-  if (!isHostAllowed(host, whitelist) && !registered) {
-    el.textContent = '許可: 未登録';
-    el.style.color = '#f59e0b';
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = '保存';
+      btn.textContent = '許可';
     }
     return;
   }
@@ -260,7 +250,7 @@ async function updatePermissionStatus(host, whitelist) {
     el.style.color = '#64748b';
     if (btn) {
       btn.disabled = true;
-      btn.textContent = '許可済み';
+      btn.textContent = '不要';
     }
     return;
   }
@@ -286,54 +276,80 @@ async function updatePermissionStatus(host, whitelist) {
     el.style.color = '#f4212e';
     if (btn) {
       btn.disabled = false;
-      btn.textContent = '保存';
+      btn.textContent = '許可';
     }
   }
 }
 
 function updateRegistryStatus(host, registry) {
-  const el = qs('gx-site-registry-status');
+  const legacyEl = qs('gx-site-registry-status');
+  const el = qs('gx-registry-status');
   const toggle = qs('gx-site-enabled');
+  const registerBtn = qs('gx-register-site');
   const help = qs('gx-help-add-site');
-  if (!el) return;
+  const setRegistryText = (text) => {
+    if (legacyEl) legacyEl.textContent = text;
+    if (el) el.textContent = text;
+  };
+  if (!legacyEl && !el) return;
   if (!host) {
-    el.textContent = '登録状況: -';
+    setRegistryText('登録: -');
     if (toggle) {
       toggle.checked = false;
       toggle.disabled = true;
+    }
+    if (registerBtn) {
+      registerBtn.disabled = true;
+      registerBtn.textContent = '登録';
     }
     if (help) help.style.display = 'none';
     return;
   }
   const item = normalizeSiteRegistry(registry).find((r) => hostMatches(host, r.host));
   if (!item && isXSiteHost(host)) {
-    el.textContent = '登録状況: 既定（有効）';
+    setRegistryText('登録: 既定（有効）');
     if (toggle) {
       toggle.checked = true;
       toggle.disabled = false;
+    }
+    if (registerBtn) {
+      registerBtn.disabled = true;
+      registerBtn.textContent = '登録済み';
     }
     if (help) help.style.display = 'none';
     return;
   }
   if (!item) {
-    el.textContent = '登録状況: 未登録';
+    setRegistryText('登録: 未登録');
     if (toggle) {
       toggle.checked = false;
       toggle.disabled = true;
     }
+    if (registerBtn) {
+      registerBtn.disabled = false;
+      registerBtn.textContent = '登録';
+    }
     if (help) help.style.display = '';
   } else if (item.enabled) {
-    el.textContent = '登録状況: 登録済み（有効）';
+    setRegistryText('登録: 登録済み（有効）');
     if (toggle) {
       toggle.checked = true;
       toggle.disabled = false;
     }
+    if (registerBtn) {
+      registerBtn.disabled = false;
+      registerBtn.textContent = '登録済み';
+    }
     if (help) help.style.display = 'none';
   } else {
-    el.textContent = '登録状況: 登録済み（停止中）';
+    setRegistryText('登録: 登録済み（停止中）');
     if (toggle) {
       toggle.checked = false;
       toggle.disabled = false;
+    }
+    if (registerBtn) {
+      registerBtn.disabled = false;
+      registerBtn.textContent = '登録済み';
     }
     if (help) help.style.display = 'none';
   }
@@ -472,6 +488,17 @@ function formatColorRules(rules) {
 function getSiteRuleForHost(rules, host) {
   const list = Array.isArray(rules) ? rules : [];
   return list.find((r) => hostMatches(host, r?.host)) || null;
+}
+
+function mergeSelectorList(current, nextSelector) {
+  const existing = String(current || '')
+    .split(/\r?\n|,/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const incoming = String(nextSelector || '').trim();
+  if (!incoming) return existing.join(', ');
+  if (!existing.includes(incoming)) existing.push(incoming);
+  return existing.join(', ');
 }
 
 function parseCostLimit(raw) {
@@ -638,7 +665,7 @@ async function saveAutoToggle() {
     chrome.tabs.sendMessage(tab.id, { type: 'PAGE_SET_AUTO', enabled });
   }
   updateAutoStatusText();
-  setStatus(enabled ? '自動翻訳をオンにしました' : '自動翻訳をオフにしました', 'success');
+  setStatus(enabled ? '翻訳をオンにしました' : '翻訳をオフにしました', 'success');
 }
 
 async function sendPageCommand(type) {
@@ -667,16 +694,14 @@ async function requestPermissionForCurrentHost() {
     return;
   }
   if (isXSiteHost(cachedHost)) {
-    await registerCurrentSite();
-    setStatus('このサイトで翻訳を使えるようにしました', 'success');
+    setStatus('このサイトでは追加の許可は不要です', 'success');
     await updatePermissionStatus(cachedHost, cachedWhitelist);
     return;
   }
 
   const result = await requestHostPermissionsIfNeeded([cachedHost], true);
   if (result.granted) {
-    await registerCurrentSite();
-    setStatus('このサイトで翻訳を使えるようにしました', 'success');
+    setStatus('このサイトへの許可を保存しました', 'success');
     const tab = await getActiveTab();
     if (tab?.id) {
       chrome.tabs.reload(tab.id);
@@ -744,9 +769,10 @@ async function pickSelector(mode) {
       SETTINGS_SITE_WHITELIST_KEY
     ]);
     const rules = Array.isArray(res[SETTINGS_SITE_RULES_KEY]) ? res[SETTINGS_SITE_RULES_KEY] : [];
+    const currentRule = getSiteRuleForHost(rules, cachedHost) || {};
     const updated = upsertSiteRule(rules, cachedHost, mode === 'include'
-      ? { include: selector }
-      : { exclude: selector });
+      ? { include: mergeSelectorList(currentRule.include, selector) }
+      : { exclude: mergeSelectorList(currentRule.exclude, selector) });
     const registry = normalizeSiteRegistry(res[SETTINGS_SITE_REGISTRY_KEY] || cachedRegistry);
     if (!isXSiteHost(cachedHost)) {
       if (!registry.find((r) => hostMatches(cachedHost, r.host))) {
@@ -763,7 +789,7 @@ async function pickSelector(mode) {
     cachedRegistry = registry;
     cachedWhitelist = whitelist;
     chrome.runtime.sendMessage({ type: 'gx-update-content-scripts' }).catch(() => {});
-    setStatus(mode === 'include' ? '翻訳する場所を保存しました' : '翻訳しない場所を保存しました', 'success');
+    setStatus(mode === 'include' ? '翻訳する場所を追加しました' : '翻訳しない場所を追加しました', 'success');
     updateRegistryStatus(cachedHost, cachedRegistry);
     updateSelectorStatus(cachedHost, updated);
     const updatedRule = getSiteRuleForHost(updated, cachedHost);
@@ -944,6 +970,7 @@ async function init() {
     });
   });
   qs('gx-request-permission')?.addEventListener('click', requestPermissionForCurrentHost);
+  qs('gx-register-site')?.addEventListener('click', registerCurrentSite);
   qs('gx-site-enabled')?.addEventListener('change', (e) => {
     setCurrentSiteEnabled(e.target.checked);
   });

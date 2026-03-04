@@ -136,7 +136,7 @@ function createPanel() {
             <!-- Onboarding Overlay -->
             <form id="gx-onboard" autocomplete="off" style="display:none; position:absolute; inset:0; background: #ffffff; border-radius:16px; padding:20px 18px 18px 18px; z-index:2; box-shadow: rgba(0,0,0,0.06) 0 8px 30px;">
                 <div style="font-weight:800; font-size:16px; margin-bottom:8px; color:#0f1419;">はじめに</div>
-                <div style="font-size:13px; color:#536471; line-height:1.5; margin-bottom:14px;">GeminiのAPIキーを入力してモデルを選ぶと自動翻訳が始まります。</div>
+                <div style="font-size:13px; color:#536471; line-height:1.5; margin-bottom:14px;">GeminiのAPIキーを入力してモデルを選ぶと翻訳が始まります。</div>
                 <label style="display:block; font-size:12px; font-weight:700; color:#0f1419; margin-bottom:6px;">API Key</label>
                 <input type="text" id="gx-onboard-user" autocomplete="username" placeholder="Username" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
                 <input type="password" id="gx-onboard-key" autocomplete="new-password" placeholder="AI Studio Key" style="width:100%; border:1px solid #cfd9de; border-radius:8px; padding:10px 12px; font-size:14px; margin-bottom:14px; outline:none;">
@@ -162,7 +162,7 @@ function createPanel() {
 	                
 	                <!-- Auto Translate Toggle -->
 	                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-	                    <span style="font-size: 14px; font-weight: 700; color: #0f1419;">自動翻訳</span>
+	                    <span style="font-size: 14px; font-weight: 700; color: #0f1419;">翻訳</span>
 	                    <label style="position: relative; display: inline-block; width: 44px; height: 24px;">
 	                        <input type="checkbox" id="gx-toggle" checked style="opacity: 0; width: 0; height: 0;">
 	                        <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgb(29, 155, 240); transition: .4s; border-radius: 24px;"></span>
@@ -961,4 +961,3 @@ function setupPanelLogic(panel) {
             (limitParts.length ? `（${limitParts.join(' / ')}）` : '');
     }
 }
-
