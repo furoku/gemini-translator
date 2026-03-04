@@ -40,6 +40,53 @@ We use Conventional Commits. Examples:
 - `feat: add glossary limit guard`
 - `fix: handle empty response`
 
+## Recommended Workflow (jj + PR)
+
+This repository uses a PR-first workflow with branch protection on `main`.
+
+1) Sync latest remote state
+
+```bash
+jj git fetch
+```
+
+2) Start a new working commit from `main`
+
+```bash
+jj new main
+```
+
+3) Create a feature bookmark for the issue/task
+
+```bash
+jj bookmark create feature/issue-xxx -r @
+```
+
+4) Implement and test changes locally
+
+5) Add a commit description (Conventional Commits)
+
+```bash
+jj describe -m "feat: ..."
+```
+
+6) Push the feature bookmark
+
+```bash
+jj git push --bookmark feature/issue-xxx
+```
+
+7) Open a Pull Request
+
+```bash
+gh pr create
+```
+
+8) Wait for CI and review, then merge via PR
+
+- Required status check must pass.
+- Direct pushes to `main` are not part of normal contribution flow.
+
 ## Pull Requests
 
 Please include:
