@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+## [26.0308.0939] - 2026-03-08
+### Fixed
+- Restored X translation behavior in content script.
 
 ## [26.0304.2241] - 2026-03-04
 ### Changed

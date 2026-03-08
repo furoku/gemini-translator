@@ -139,7 +139,7 @@ function getModelStatsDayKey(now = new Date()) {
     const y = shifted.getFullYear();
     const m = String(shifted.getMonth() + 1).padStart(2, '0');
     const d = String(shifted.getDate()).padStart(2, '0');
-    return `${y} -${m} -${d} `;
+    return `${y}-${m}-${d}`;
 }
 
 function maybeResetModelStatsAt4am() {
@@ -312,7 +312,7 @@ function maskUrls(text, tokenPrefix) {
         return { core, suffix };
     };
 
-    const makeToken = () => `<< ${tokenPrefix}_URL_${nextId++}>> `;
+    const makeToken = () => `<<${tokenPrefix}_URL_${nextId++}>>`;
 
     const replaceAll = (src, re) => src.replace(re, (match) => {
         const { core, suffix } = splitSuffix(match);
@@ -417,7 +417,7 @@ function hostMatches(host, entry) {
     if (!h || !e) return false;
     if (e.startsWith('.')) e = e.slice(1);
     if (!e) return false;
-    return h === e || h.endsWith(`.${e} `);
+    return h === e || h.endsWith(`.${e}`);
 }
 
 function isHostAllowed(host) {
@@ -560,9 +560,9 @@ function getPageCacheKey() {
     try {
         const url = new URL(location.href);
         url.hash = '';
-        return `${PAGE_CACHE_KEY_PREFIX}${url.toString()} `;
+        return `${PAGE_CACHE_KEY_PREFIX}${url.toString()}`;
     } catch (e) {
-        return `${PAGE_CACHE_KEY_PREFIX}${location.origin}${location.pathname}${location.search || ''} `;
+        return `${PAGE_CACHE_KEY_PREFIX}${location.origin}${location.pathname}${location.search || ''}`;
     }
 }
 
@@ -635,7 +635,7 @@ function shouldExcludeTweet(element, text) {
         if (!kw) return false;
         const lowerKw = kw.toLowerCase();
         if (/^[a-z0-9]+$/i.test(lowerKw)) {
-            const regex = new RegExp(`\\b${lowerKw} \\b`);
+            const regex = new RegExp(`\\b${lowerKw}\\b`);
             return regex.test(t);
         }
         return t.includes(lowerKw);
