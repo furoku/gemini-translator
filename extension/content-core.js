@@ -421,8 +421,18 @@ function hostMatches(host, entry) {
 }
 
 function isHostAllowed(host) {
-    if (!siteWhitelist || siteWhitelist.length === 0) return isXHost;
+    const normalizedHost = normalizeHost(host);
+    if (isXHost || isXSiteHost(normalizedHost)) return true;
+    if (!siteWhitelist || siteWhitelist.length === 0) return false;
     return siteWhitelist.some((entry) => hostMatches(host, entry));
+}
+
+function isXSiteHost(host) {
+    const h = normalizeHost(host);
+    return h === 'x.com'
+        || h.endsWith('.x.com')
+        || h === 'twitter.com'
+        || h.endsWith('.twitter.com');
 }
 
 function splitSelectors(input) {
@@ -790,4 +800,3 @@ function pruneCache(map) {
         else break;
     }
 }
-
