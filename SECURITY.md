@@ -1,20 +1,25 @@
 # Security Policy
 
-## Supported Versions
+## Supported version
 
-Only the latest release is supported with security fixes.
+Security fixes target the latest source on the default branch and the latest GitHub Release. Locally modified or older copies are not supported.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-Please do not open public issues for security reports.
+Open a GitHub issue with a minimal, non-sensitive description and ask for a private reporting channel before sharing reproduction details. Do not post API keys, authorization URLs, private page text, browsing data, screenshots containing personal information, or raw Gemini responses in a public issue.
 
-Preferred: use GitHub Security Advisories for this repository to submit a private report.
-If that is not possible, open a minimal issue and request a private contact method.
+Please include the affected commit or extension version, Chrome version, expected behavior, observed impact, and whether the issue can expose data or trigger paid API requests.
 
-Include:
+## Security boundary
 
-- A clear description of the issue and impact
-- Steps to reproduce or a proof of concept
-- Affected versions
+Gemini Translator must:
 
-We will acknowledge reports as soon as possible and provide a timeline for a fix when confirmed.
+- call only Google's Gemini API for translation;
+- store API keys and settings locally rather than in Chrome sync;
+- request non-X website access only after an explicit user action;
+- validate hostnames and selector settings before use and display;
+- avoid developer-operated servers, telemetry, and background data collection unrelated to translation;
+- keep daily cost and character limits fail-closed when the stored values are invalid;
+- migrate away from shut-down model IDs before API requests are handled.
+
+If an API key may have been exposed, revoke it in Google AI Studio before generating a replacement.

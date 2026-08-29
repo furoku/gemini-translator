@@ -1,8 +1,11 @@
 .DS_Store
+node_modules/
+extension/node_modules/
 *.zip
 *.crx
 *.pem
 output/
+dist/
 .codex/
 .claude/
 .jj/
@@ -11,5 +14,3 @@ findings.md
 progress.md
 task_plan.md
 MEMORY.md
-scripts/*
-!scripts/validate-manifest.mjs
