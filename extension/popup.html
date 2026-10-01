@@ -1,572 +1,100 @@
 <!doctype html>
 <html lang="ja">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Gemini Translator</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
-
-    :root {
-      --bg: #ffffff;
-      --bg-subtle: #f9fafb;
-      --text: #374151;
-      --text-muted: #6b7280;
-      --primary: #10b981;
-      --primary-hover: #059669;
-      --border: #e5e7eb;
-      --danger: #f87171;
-      --success: #10b981;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: 'Noto Sans JP', sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      width: 320px;
-      font-size: 13px;
-    }
-
-    .header {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .host-badge {
-      font-size: 10px;
-      background: var(--bg-subtle);
-      padding: 2px 8px;
-      border-radius: 99px;
-      color: var(--text-muted);
-      max-width: 120px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .stats-inline {
-      font-size: 10px;
-      color: var(--text-muted);
-      display: flex;
-      gap: 8px;
-    }
-
-    .stats-inline strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .main-card {
-      padding: 16px;
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .stats-card {
-      display: none;
-    }
-
-    .stats-title {
-      display: none;
-    }
-
-    .stats-row {
-      display: none;
-    }
-
-    .stats-value {
-      display: none;
-    }
-
-    .stats-sub {
-      display: none;
-    }
-
-    .help-card {
-      display: none;
-      margin: 12px 16px 0 16px;
-      padding: 10px 12px;
-      border: 1px dashed var(--border);
-      border-radius: 10px;
-      font-size: 12px;
-      color: var(--text-muted);
-      line-height: 1.5;
-      background: #fff;
-    }
-
-    .help-card strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .toggle-area {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
-    .status-text {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .toggle-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .btn-reset {
-      padding: 6px 10px;
-      font-size: 11px;
-      border-radius: 8px;
-      height: 30px;
-    }
-
-    /* Compact Toggle Switch */
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 60px;
-      height: 32px;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #d1d5db;
-      transition: .3s;
-      border-radius: 24px;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 24px;
-      width: 24px;
-      left: 4px;
-      bottom: 4px;
-      background-color: white;
-      transition: .3s;
-      border-radius: 50%;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-
-    input:checked+.slider {
-      background-color: var(--primary);
-    }
-
-    input:checked+.slider:before {
-      transform: translateX(28px);
-    }
-
-    /* Action Buttons */
-    .action-grid {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-    }
-
-    .btn {
-      background: var(--bg-subtle);
-      border: none;
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .btn:hover {
-      background: #ecfdf5;
-      color: var(--primary);
-    }
-
-    .btn-outline {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-main);
-    }
-
-    .btn-outline:hover {
-      background: #f0f7f2;
-      color: var(--primary);
-    }
-
-    .btn svg {
-      width: 14px;
-      height: 14px;
-    }
-
-    .permission-status {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-    }
-
-    .settings-group {
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .row {
-      margin-bottom: 10px;
-    }
-
-    .api-row {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      flex-wrap: nowrap;
-    }
-
-    .api-row input {
-      flex: 1 1 auto;
-      min-width: 0;
-    }
-
-    .api-row .btn {
-      flex: 0 0 auto;
-      white-space: nowrap;
-    }
-
-    label {
-      display: block;
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-      font-weight: 500;
-    }
-
-    select,
-    input[type="text"],
-    input[type="password"] {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 12px;
-      color: var(--text);
-      outline: none;
-      background: #fff;
-    }
-
-    select:focus,
-    input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
-    }
-
-    .adv-link {
-      display: block;
-      text-align: center;
-      padding: 10px;
-      text-decoration: none;
-      color: var(--text-muted);
-      font-weight: 500;
-      font-size: 11px;
-    }
-
-    .adv-link:hover {
-      color: var(--primary);
-    }
-
-    /* Color Chips */
-    .color-section {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .color-section label {
-      font-size: 10px;
-      margin-bottom: 8px;
-    }
-
-    .color-chips {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-    }
-
-    .color-chip {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      border: 2px solid transparent;
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-
-    .color-chip:hover {
-      transform: scale(1.1);
-    }
-
-    .color-chip.selected {
-      border-color: var(--text);
-      transform: scale(1.1);
-    }
-
-    .chip-inherit { background: #64748b; }
-    .chip-blue { background: #3b82f6; }
-    .chip-green { background: #10b981; }
-    .chip-orange { background: #f59e0b; }
-
-    /* Site Settings Drawer */
-    details {
-      border-top: 1px solid var(--border);
-      background: #fff;
-    }
-
-    details summary {
-      padding: 10px 12px;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 11px;
-      color: var(--text-muted);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      list-style: none;
-    }
-
-    details summary::after {
-      content: "+";
-      font-size: 14px;
-      color: var(--text-muted);
-    }
-
-    details[open] summary::after {
-      content: "-";
-    }
-
-    .drawer-content {
-      padding: 10px 12px;
-      border-top: 1px solid var(--border);
-      background: var(--bg-subtle);
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-      border: none;
-      width: 100%;
-      padding: 8px;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 12px;
-      cursor: pointer;
-    }
-
-    .btn-primary:hover {
-      background: var(--primary-hover);
-    }
-
-    /* Toast notification */
-    .toast {
-      position: fixed;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: rgba(15, 23, 42, 0.95);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 13px;
-      font-weight: 500;
-      opacity: 0;
-      transition: all 0.3s ease;
-      z-index: 1000;
-      pointer-events: none;
-    }
-
-    .toast.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
-
-    .toast.success {
-      background: var(--success);
-    }
-
-    .toast.error {
-      background: var(--danger);
-    }
-
-    /* Button loading state */
-    .btn.loading {
-      opacity: 0.6;
-      pointer-events: none;
-    }
+    :root { color-scheme:light; --bg:#fff; --sub:#f6f8fa; --text:#1f2937; --muted:#64748b; --line:#dbe1e8; --accent:#059669; --danger:#b42318; }
+    * { box-sizing:border-box; }
+    body { width:340px; margin:0; font:13px system-ui,-apple-system,"Hiragino Sans","Yu Gothic",sans-serif; color:var(--text); background:var(--bg); }
+    header { padding:10px 12px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px; align-items:center; }
+    #gx-host { max-width:145px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); }
+    .stats { display:flex; gap:8px; font-size:10px; color:var(--muted); }
+    section { padding:12px; border-bottom:1px solid var(--line); }
+    .row { margin:10px 0; }
+    .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    label { display:block; color:var(--muted); font-size:11px; margin-bottom:4px; }
+    input,select,textarea { width:100%; padding:8px 9px; border:1px solid var(--line); border-radius:7px; font:inherit; background:#fff; }
+    button { font:inherit; cursor:pointer; }
+    .btn { padding:8px 10px; border:1px solid var(--line); background:#fff; border-radius:8px; color:var(--text); }
+    .btn:hover { border-color:var(--accent); }
+    .primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .toggle { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .switch { display:flex; align-items:center; gap:8px; font-weight:700; }
+    .switch input { width:auto; }
+    .muted,.permission-status { color:var(--muted); font-size:11px; line-height:1.5; }
+    .actions { display:flex; gap:7px; }
+    .actions > * { flex:1; }
+    .color-chips { display:flex; justify-content:center; gap:12px; }
+    .color-chip { width:25px; height:25px; border:3px solid transparent; border-radius:50%; }
+    .color-chip.selected { border-color:#111827; }
+    .chip-inherit{background:#64748b}.chip-blue{background:#3b82f6}.chip-green{background:#10b981}.chip-orange{background:#f59e0b}
+    details summary { cursor:pointer; color:var(--muted); }
+    .adv-link { display:block; padding:11px; text-align:center; color:var(--muted); text-decoration:none; }
+    .toast { position:fixed; left:50%; bottom:12px; transform:translate(-50%,70px); opacity:0; background:#111827; color:#fff; padding:9px 16px; border-radius:9px; transition:.2s; pointer-events:none; }
+    .toast.show { transform:translate(-50%,0); opacity:1; }.toast.success{background:#047857}.toast.error{background:var(--danger)}
   </style>
 </head>
-
 <body>
+  <header>
+    <div id="gx-host">-</div>
+    <div class="stats"><strong id="gx-stats-cost">$0</strong><span><strong id="gx-stats-chars">0</strong>文字</span><span id="gx-stats-limit"></span></div>
+  </header>
 
-  <div class="header">
-    <div class="host-badge" id="gx-host">-</div>
-    <div class="stats-inline">
-      <span><strong id="gx-stats-cost">$0</strong></span>
-      <span><strong id="gx-stats-chars">0</strong>文字</span>
-      <span id="gx-stats-limit"></span>
+  <section>
+    <div class="toggle">
+      <label class="switch"><input id="gx-auto" type="checkbox"><span class="status-text">翻訳 OFF</span></label>
+      <button class="btn" id="gx-clear-cache" type="button">キャッシュリセット</button>
     </div>
-  </div>
+  </section>
 
-  <div class="main-card">
-    <div class="toggle-area">
-      <div class="toggle-group">
-        <label class="switch">
-          <input id="gx-auto" type="checkbox" />
-          <span class="slider"></span>
-        </label>
-        <div class="status-text">翻訳 OFF</div>
-      </div>
-      <button class="btn btn-reset" id="gx-clear-cache">キャッシュリセット</button>
+  <div class="muted" id="gx-help-add-site" style="display:none;padding:10px 12px;">初めてのサイトでは、登録→権限許可→必要に応じて翻訳エリア選択の順に設定します。</div>
+
+  <section>
+    <div class="two">
+      <div><label for="gx-direction">翻訳方向</label><select id="gx-direction"><option value="en_to_ja">英 → 日</option><option value="ja_to_en">日 → 英</option></select></div>
+      <div><label for="gx-model">モデル</label><select id="gx-model"><option value="gemini-3.5-flash-lite">3.5 Lite</option><option value="gemini-3.1-flash-lite">3.1 Lite</option><option value="gemini-2.5-flash-lite">2.5 Lite</option></select></div>
     </div>
-  </div>
+    <details class="row">
+      <summary>API設定</summary>
+      <div class="row"><label for="gx-apikey">Google AI Studio API Key</label><input id="gx-apikey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza..."></div>
+      <button id="gx-save" class="btn primary" type="button">保存</button>
+      <div id="gx-msg" class="muted"></div>
+    </details>
+  </section>
 
-  <div class="help-card" id="gx-help-add-site">
-    <strong>初めてのサイト追加</strong><br />
-    1. このサイトを登録する<br />
-    2. 許可を出す（初回のみ）<br />
-    3. 翻訳エリアを必要に応じて選ぶ<br />
-    4. すぐ翻訳できます
-  </div>
-
-  <!-- Stats moved to header inline -->
-
-  <div class="settings-group">
-    <div class="row">
-      <label>翻訳設定</label>
-      <div style="display: flex; gap: 8px;">
-        <select id="gx-direction" style="flex:1;">
-          <option value="en_to_ja">英 → 日</option>
-          <option value="ja_to_en">日 → 英</option>
-        </select>
-        <select id="gx-model" style="flex:1;">
-          <option value="gemini-2.5-flash-lite">2.5 Lite</option>
-          <option value="gemini-3.1-flash-lite-preview">3.1 Lite</option>
-        </select>
-      </div>
-      <details style="margin-top: 12px; border: none; background: transparent;">
-        <summary style="border: none; padding: 4px 0; font-size: 11px; color: var(--text-muted); font-weight: 500;">🔑 API設定</summary>
-        <div class="row" style="margin-top: 8px;">
-          <label>API Key</label>
-          <div class="api-row">
-            <input id="gx-apikey" type="password" placeholder="AIza..." />
-            <button id="gx-save" class="btn"
-              style="width: auto; height: 38px; padding: 0 12px; justify-content: center;">保存</button>
-          </div>
-          <div id="gx-msg" style="font-size: 11px; margin-top: 4px; text-align: center; color: var(--text-muted);"></div>
-        </div>
-      </details>
-    </div>
-  </div>
-
-  <div class="color-section">
+  <section>
     <label>翻訳後の文字色</label>
     <div class="color-chips">
-      <div class="color-chip chip-inherit" data-color="inherit" title="変更なし"></div>
-      <div class="color-chip chip-blue" data-color="blue" title="青"></div>
-      <div class="color-chip chip-green" data-color="green" title="緑"></div>
-      <div class="color-chip chip-orange" data-color="orange" title="橙"></div>
+      <button class="color-chip chip-inherit" data-color="inherit" type="button" aria-label="変更なし"></button>
+      <button class="color-chip chip-blue" data-color="blue" type="button" aria-label="青"></button>
+      <button class="color-chip chip-green" data-color="green" type="button" aria-label="緑"></button>
+      <button class="color-chip chip-orange" data-color="orange" type="button" aria-label="橙"></button>
     </div>
-  </div>
+  </section>
 
-  <div style="margin-top: 12px;">
-    <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px; color: var(--text-main);">サイト設定</div>
-    <div class="drawer-content">
-      <div class="row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-        <label style="margin:0;">有効</label>
-        <label class="switch">
-          <input id="gx-site-enabled" type="checkbox" />
-          <span class="slider"></span>
-        </label>
-      </div>
+  <section>
+    <div class="toggle row"><strong>このサイト</strong><label class="switch"><input id="gx-site-enabled" type="checkbox"><span>有効</span></label></div>
+    <div class="actions row"><button class="btn" id="gx-register-site" type="button">登録</button><button class="btn" id="gx-request-permission" type="button">許可</button></div>
+    <div id="gx-registry-status" class="permission-status">登録: -</div>
+    <div id="gx-permission-status" class="permission-status">許可: -</div>
+    <div class="toggle row"><span>SPA対策</span><label class="switch"><input id="gx-spa-scan-enabled" type="checkbox"><span>有効</span></label></div>
+    <div class="actions row"><button class="btn" id="gx-pick-include" type="button">翻訳エリア選択</button><button class="btn" id="gx-open-site-settings-include" type="button">詳細編集</button></div>
+    <div class="actions row"><button class="btn" id="gx-pick-exclude" type="button">除外エリア選択</button><button class="btn" id="gx-open-site-settings-exclude" type="button">詳細編集</button></div>
+  </section>
 
-      <div style="display:flex; gap:8px; margin-bottom: 12px;">
-        <button class="btn btn-outline" id="gx-register-site" style="flex:1; justify-content:center;">登録</button>
-        <button class="btn btn-outline" id="gx-request-permission" style="flex:1; justify-content:center;">許可</button>
-      </div>
-
-      <div id="gx-registry-status" class="permission-status">登録: -</div>
-      <div id="gx-permission-status" class="permission-status">許可: -</div>
-
-      <div class="row" style="margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <label style="margin:0;">SPA対策</label>
-          <label class="switch">
-            <input id="gx-spa-scan-enabled" type="checkbox" />
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-          翻訳がうまく行かない場合はこのボタンをONしてください。
-        </div>
-      </div>
-
-      <label>翻訳エリア</label>
-      <div style="display: flex; gap: 4px; margin-bottom: 10px;">
-        <button class="btn btn-outline" id="gx-pick-include" style="flex: 1; height: 32px; padding: 0 10px;">エリアを選ぶ</button>
-        <button class="btn btn-outline" id="gx-open-site-settings-include" style="flex: 1; height: 32px; padding: 0 10px;">詳細編集</button>
-      </div>
-
-      <label>除外エリア</label>
-      <div style="display: flex; gap: 4px; margin-bottom: 10px;">
-        <button class="btn btn-outline" id="gx-pick-exclude" style="flex: 1; height: 32px; padding: 0 10px;">エリアを選ぶ</button>
-        <button class="btn btn-outline" id="gx-open-site-settings-exclude" style="flex: 1; height: 32px; padding: 0 10px;">詳細編集</button>
-      </div>
-
-      <!-- Hidden elements for logic compatibility -->
-      <div style="display:none;">
-        <button id="gx-test"></button>
-        <div id="gx-site-registry-status"></div>
-        <div id="gx-selector-status"></div>
-        <div id="gx-site-status"></div>
-        <input type="hidden" id="gx-translate-color-default" />
-        <textarea id="gx-translate-color-rules"></textarea>
-        <textarea id="gx-exclude-keywords"></textarea>
-        <input id="gx-cost-limit" />
-        <input id="gx-chars-limit" />
-        <textarea id="gx-glossary"></textarea>
-      </div>
-    </div>
+  <div hidden>
+    <button id="gx-test"></button><div id="gx-site-registry-status"></div><div id="gx-selector-status"></div><div id="gx-site-status"></div>
+    <input id="gx-translate-color-default"><textarea id="gx-translate-color-rules"></textarea><textarea id="gx-exclude-keywords"></textarea>
+    <input id="gx-cost-limit"><input id="gx-chars-limit"><textarea id="gx-glossary"></textarea><div id="gx-status"></div>
   </div>
 
   <a href="#" id="gx-open-options" class="adv-link">詳細設定</a>
-
-  <!-- Toast for user feedback -->
-  <div id="gx-toast" class="toast"></div>
-  <!-- Hidden status element for compatibility -->
-  <div id="gx-status" style="display:none;"></div>
-
+  <div id="gx-toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="model-policy.js"></script>
+  <script src="ui-storage-guard.js"></script>
   <script src="popup.js"></script>
+  <script src="popup-pricing.js"></script>
 </body>
-
 </html>

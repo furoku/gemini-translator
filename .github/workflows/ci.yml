@@ -3,22 +3,46 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '20'
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
       - name: Validate manifest references
         run: node scripts/validate-manifest.mjs
-      - name: Smoke check JavaScript syntax
+
+      - name: Check JavaScript syntax
         run: |
-          node --check extension/background.js
-          node --check extension/content.js
-          node --check extension/options.js
-          node --check extension/popup.js
-          node --check extension/gemlab-utils.js
+          find extension scripts -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' \) -print0 \
+            | xargs -0 -n1 node --check
+
+      - name: Install test dependencies
+        run: npm ci --prefix extension
+
+      - name: Run focused security tests
+        run: npm test --prefix extension
+
+      - name: Run repository security audit
+        run: node scripts/security-audit.mjs
+
+      - name: Audit high-severity dependencies
+        run: npm audit --prefix extension --audit-level=high

@@ -1,31 +1,30 @@
 # Privacy Policy
 
+Last verified: 2026-08-30
+
 ## Overview
 
-Gemini Translator is a Chrome extension that translates text on X.com/Twitter using the Gemini API.
+Gemini Translator is a Chrome extension that sends text to the Google Gemini API to perform a translation requested by the user.
 
-## Data We Handle
+## Data handled
 
-- **API Key**: Stored locally using Chrome storage. The key is used only to call the Gemini API.
-- **Text to Translate**: The extension sends the selected page text to the Gemini API for translation.
-- **Settings**: Translation direction, glossary, and per-site settings are stored locally.
+- **Google Gemini API key:** Stored in `chrome.storage.local` on the current Chrome profile. Chrome sync storage is not used.
+- **Text to translate:** Sent directly from the extension to `generativelanguage.googleapis.com` when translation is enabled for the page.
+- **Settings:** Translation direction, model, glossary, exclusions, limits, site registry, CSS selectors, colors, and cache preferences are stored locally.
+- **Usage statistics and cache:** Stored locally to enforce the user-configured limits and reduce repeat requests.
 
-We do not operate any server for this project and do not collect analytics.
+## Data sharing
 
-## Data Sharing
+The API key and translation text are sent to Google. Google's current Gemini API terms and privacy documentation govern that processing. No information is sent to a server operated by this project's maintainer. The extension contains no analytics or telemetry SDK.
 
-- Text and API key are sent to Google’s Gemini API endpoint (`generativelanguage.googleapis.com`) to perform translation.
-- No other third-party services are used.
+## Site permissions
 
-## Data Retention
+X.com and Twitter are supported by the installed content script. Other website origins are requested only after the user registers a site and approves Chrome's permission prompt. Stored hostnames and selector rules are validated before use and before display in the settings UI.
 
-- Settings and API key remain in local Chrome storage until the user clears them or uninstalls the extension.
+## Retention and deletion
 
-## Security Notes
-
-- Do not share or commit your API key.
-- If you suspect key exposure, revoke it in Google AI Studio and generate a new one.
+Local data remains until the user resets the relevant settings, clears the extension's storage, or uninstalls the extension. If an API key may have been exposed, revoke it in Google AI Studio and create a replacement.
 
 ## Contact
 
-For privacy or security concerns, follow the process in `SECURITY.md`.
+Follow [SECURITY.md](SECURITY.md) for security or privacy reports. Never include an API key, private page text, or raw API response in a public issue.
